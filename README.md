@@ -8,12 +8,62 @@ SemVer defines a way to define version numbers, based on
 * a notion of precedence for version and
 * rules for increasing version numbers in case of changes
 
-This repository contains an implementation of SemVer in Lean in file [semver.lean](semver.lean) with
+This repository contains an implementation of SemVer in Lean in file [Main.lean](Main.lean) with
 1. types coincide with the symbols the BNF specification
 1. functions for `<` and `DecidableLT` for comparing two version based on the precedence for two semantic versions
 1. parsers for converting strings into terms of the aforementioned types
 
-## Examples
+## How to run it
+
+[Install Lean](https://lean-lang.org/install/), clone this repository and then execute
+```
+lake exe lean-semver
+```
+
+## How to use it
+
+The program prompts you to enter two version numbers. Based on that, it prints some text to the console.
+
+The expression in the last line, indicates if the version entered first is less than the second one, based on the 
+precedence rules defined by semantic versioning. 
+
+### Examples
+
+#### Example 1
+
+```
+please enter the first version number --> 1.1.2-alpha1+2025-09-07.16-23-57
+please enter the second version number -> 1.1.2-alpha1+2025-09-07.17-03-42
+the internal representation of the first version number is:
+{ toVersionCore := { major := 1, minor := 1, patch := 2 },
+  preRelease := some [Sum.inl "alpha1"],
+  build := some [Sum.inl "2025-09-07", Sum.inl "16-23-57"] }
+the internal representation of the second version number is:
+{ toVersionCore := { major := 1, minor := 1, patch := 2 },
+  preRelease := some [Sum.inl "alpha1"],
+  build := some [Sum.inl "2025-09-07", Sum.inl "17-03-42"] }
+for the precedence of the first and second value, the following is true:
+  ¬ 1.1.2-alpha1+2025-09-07.16-23-57 < 1.1.2-alpha1+2025-09-07.17-03-42
+```
+
+#### Example 2
+
+```
+please enter the first version number --> 1.1.2-alpha1+2025-09-07.16-23-57
+please enter the second version number -> 1.1.2-alpha2+2025-09-07.17-03-42
+the internal representation of the first version number is:
+{ toVersionCore := { major := 1, minor := 1, patch := 2 },
+  preRelease := some [Sum.inl "alpha1"],
+  build := some [Sum.inl "2025-09-07", Sum.inl "16-23-57"] }
+the internal representation of the second version number is:
+{ toVersionCore := { major := 1, minor := 1, patch := 2 },
+  preRelease := some [Sum.inl "alpha2"],
+  build := some [Sum.inl "2025-09-07", Sum.inl "17-03-42"] }
+for the precedence of the first and second value, the following is true:
+    1.1.2-alpha1+2025-09-07.16-23-57 < 1.1.2-alpha2+2025-09-07.17-03-42
+```
+
+## How it is implemented
 
 ### Parsing
 

@@ -1,5 +1,3 @@
-namespace SemanticVersioning
-
 section ParserErrors
 
 structure ParserError where
@@ -19,8 +17,6 @@ end ParserError
 section Examples
 
 def parser_error_0 :=  { message := "example" , position := 42 : ParserError}
-#eval parser_error_0
-#eval parser_error_0.toString
 
 end Examples
 
@@ -93,22 +89,6 @@ protected def parse {α : Type}
 
 end NonEmptyList
 
-section Examples
-
-#synth Repr (NonEmptyList String)
-
-def non_empty_list_0 : NonEmptyList Nat := ⟨[1,2,3], rfl⟩
-def non_empty_list_1 : NonEmptyList Nat := ⟨[1,3,3], rfl⟩
-def non_empty_list_2 : NonEmptyList String := ⟨["ab", "cd"], rfl⟩
-def non_empty_list_3 : NonEmptyList String := ⟨["ab", "cd", "ef"], rfl⟩
-
-#eval non_empty_list_0
-#eval non_empty_list_0 = non_empty_list_1
-#eval non_empty_list_0 < non_empty_list_1
-#eval non_empty_list_2 < non_empty_list_3
-
-end Examples
-
 end NonEmptyLists
 
 section NonEmptyStrings
@@ -142,23 +122,6 @@ def parse (a : String) (pos : Nat) : NonEmptyString ⊕ ParserError :=
     }
 
 end NonEmptyString
-
-section Examples
-
-#synth Repr NonEmptyString
-
-def non_empty_string_0 : NonEmptyString := ⟨"alpha2", rfl⟩
-def non_empty_string_1 : NonEmptyString := ⟨"beta1", rfl⟩
-
-#eval non_empty_string_0
-#eval non_empty_string_1
-#eval non_empty_string_0 = non_empty_string_1
-#eval non_empty_string_0 < non_empty_string_1
-
-#eval NonEmptyString.parse " " 0
-#eval NonEmptyString.parse "" 0
-
-end Examples
 
 end NonEmptyStrings
 
@@ -218,25 +181,6 @@ def parse (a : String) (pos : Nat) : Digits ⊕ ParserError :=
 
 end Digits
 
-section Examples
-
-#synth Repr Digits
-
-def digits_0 : Digits := ⟨⟨"0", rfl⟩, rfl⟩
-def digits_1 : Digits := ⟨⟨"1234", rfl⟩, rfl⟩
-def digits_2 : Digits := ⟨⟨"12", rfl⟩, rfl⟩
-def digits_3 : Digits := ⟨⟨"0000", rfl⟩, rfl⟩
-def digits_4 : Digits := ⟨⟨"0001234", rfl⟩, rfl⟩
-
-#eval digits_0
-#eval digits_0 < digits_1
-#eval digits_0 = digits_3 -- false
-#eval digits_0 < digits_3 -- false
-
-#eval Digits.parse "x12345" 0
-
-end Examples
-
 end Digits
 
 section NumericIdentifiers
@@ -288,22 +232,6 @@ def parse (a : String) (pos : Nat) : NumericIdentifier ⊕ ParserError :=
 
 end NumericIdentifier
 
-section Examples
-
-#synth Repr NumericIdentifier
-
-def num_ident_0 : NumericIdentifier := ⟨⟨⟨"1234", rfl⟩, rfl⟩, rfl⟩
-def num_ident_1 : NumericIdentifier := ⟨⟨⟨"0", rfl⟩, rfl⟩, rfl⟩
-def num_ident_2 : NumericIdentifier := ⟨⟨⟨"1", rfl⟩, rfl⟩, rfl⟩
-def num_ident_3 : NumericIdentifier := ⟨⟨⟨"101010", rfl⟩, rfl⟩, rfl⟩
-
-#eval num_ident_0
-
-#eval NumericIdentifier.parse "1234" 0
-#eval NumericIdentifier.parse "12a34" 0
-
-end Examples
-
 end NumericIdentifiers
 
 section Identifiers
@@ -348,32 +276,6 @@ def parse (a : String) (pos : Nat) : Identifier ⊕ ParserError :=
   | .inr e => .inr e
 
 end Identifier
-
-section Examples
-
-#synth Repr Identifier
-
-def ident_0 : Identifier := ⟨non_empty_string_0, rfl⟩
-def ident_1 : Identifier := ⟨non_empty_string_0, rfl⟩
-def ident_2 : Identifier := ⟨⟨"build3", rfl⟩, rfl⟩
-def ident_3 : Identifier := ⟨num_ident_0.val.val, rfl⟩
-def ident_4 : Identifier := ⟨⟨"0123-3210", rfl⟩, rfl⟩
-def ident_5 : Identifier := ⟨⟨"012303210", rfl⟩, rfl⟩
-def ident_6 : Identifier := ⟨⟨"nightly-2025-09-06", rfl⟩, rfl⟩
-
-#eval ident_0
-#eval ident_1
-#eval ident_2
-#eval ident_3
-#eval ident_4
-#eval ident_5
-#eval ident_0 = ident_1
-#eval ident_0 < ident_1
-
-#eval Identifier.parse "abc-12344" 0
-#eval Identifier.parse "abc&12344" 0
-
-end Examples
 
 end Identifiers
 
@@ -435,32 +337,6 @@ def parse (a : String) (pos : Nat) : AlphanumericIdentifier ⊕ ParserError :=
 
 end AlphanumericIdentifier
 
-section Examples
-
-#synth Repr AlphanumericIdentifier
-
-def alpha_ident_0 : AlphanumericIdentifier := ⟨ident_0,rfl⟩
-def alpha_ident_1 : AlphanumericIdentifier := ⟨ident_1,rfl⟩
-def alpha_ident_2 : AlphanumericIdentifier := ⟨ident_2,rfl⟩
-def alpha_ident_3 : AlphanumericIdentifier := ⟨ident_4,rfl⟩
-def alpha_ident_4 : AlphanumericIdentifier := ⟨ident_6,rfl⟩
-def alpha_ident_5 : AlphanumericIdentifier := ⟨⟨⟨"-12345", rfl⟩, rfl⟩, rfl⟩
-
-#eval alpha_ident_0
-#eval alpha_ident_1
-#eval alpha_ident_2
-#eval alpha_ident_3
-#eval alpha_ident_4
-#eval alpha_ident_5
-#eval alpha_ident_0 = alpha_ident_1
-#check alpha_ident_0 < alpha_ident_1
-#eval alpha_ident_0 < alpha_ident_1
-
-#eval AlphanumericIdentifier.parse "ab0123" 0
-#eval AlphanumericIdentifier.parse "0123" 0
-
-end Examples
-
 end AlphaNumericIdentifiers
 
 section DecOrderedSums
@@ -481,8 +357,6 @@ instance {α β : Type}
     fun (a : DecOrderedSum α β) (n : Nat) => (a : Sum α β).repr n
 
 namespace DecOrderedSum
-
-#eval (.inl "a" : DecOrderedSum String Nat)
 
 theorem inl_eq (α β : Type) (s t : α) :
   (.inl s : α ⊕ β) = (.inl t : α ⊕ β) ↔ s = t := by
@@ -579,37 +453,6 @@ instance (α β : Type)
 
 end DecOrderedSum
 
-section Examples
-
-example : DecOrderedSum.lt (.inr 0 : DecOrderedSum String Nat) (.inl "" : DecOrderedSum String Nat) := by
-  unfold DecOrderedSum.lt; simp
-
-example : ¬ DecOrderedSum.lt (.inl 0 : DecOrderedSum Nat String) (.inr "" : DecOrderedSum Nat String) := by
-  unfold DecOrderedSum.lt; simp
-
-example : ¬ DecOrderedSum.lt (.inl "" : DecOrderedSum String Nat) (.inr 0 : DecOrderedSum String Nat) := by
-  unfold DecOrderedSum.lt; simp
-
-example : DecOrderedSum.lt (.inr "" : DecOrderedSum Nat String) (.inl 0 : DecOrderedSum Nat String) := by
-  unfold DecOrderedSum.lt; simp
-
-def dec_ordered_sum_num_str_0 : DecOrderedSum String Nat := .inl ""
-
-#eval dec_ordered_sum_num_str_0
-#eval ToString.toString dec_ordered_sum_num_str_0
-
-def dec_ordered_sum_num_str_1 : DecOrderedSum String Nat  := .inl "test"
-#eval dec_ordered_sum_num_str_1
-#eval ToString.toString dec_ordered_sum_num_str_1
-
-def dec_ordered_sum_num_str_2 : DecOrderedSum String Nat := .inr 123
-#eval dec_ordered_sum_num_str_2
-#eval ToString.toString dec_ordered_sum_num_str_2
-
-#synth Repr (DecOrderedSum AlphanumericIdentifier Digits)
-
-end Examples
-
 end DecOrderedSums
 
 section BuildIdentifiers
@@ -653,24 +496,6 @@ def parse (a : String) (pos : Nat) : BuildIdentifier ⊕ ParserError :=
 
 end BuildIdentifier
 
-section Examples
-
-#synth Repr BuildIdentifier
-
-def build_ident_1 : BuildIdentifier := .inl alpha_ident_4
-#eval build_ident_1.toString
-
-def build_ident_2 : BuildIdentifier := .inr digits_1
-#eval build_ident_2.toString
-
-#eval build_ident_2 < build_ident_1
-
-#eval BuildIdentifier.parse "01234" 0
-#eval BuildIdentifier.parse "a0-1234" 0
-#eval BuildIdentifier.parse "0a!1234" 0
-
-end Examples
-
 def DotSeparatedBuildIdentifiers : Type := NonEmptyList BuildIdentifier
 
 deriving instance Repr for DotSeparatedBuildIdentifiers
@@ -685,19 +510,6 @@ def parse (a : String) (pos : Nat) : DotSeparatedBuildIdentifiers ⊕ ParserErro
   NonEmptyList.parse a pos BuildIdentifier.parse '.'
 
 end DotSeparatedBuildIdentifiers
-
-section Examples
-
-#synth Repr DotSeparatedBuildIdentifiers
-
-def dot_sep_build_ident_0 : DotSeparatedBuildIdentifiers :=
-  ⟨[build_ident_1, build_ident_2], rfl⟩
-
-#eval dot_sep_build_ident_0.toString
-
-#eval DotSeparatedBuildIdentifiers.parse "test.0123.---" 0
-
-end Examples
 
 end BuildIdentifiers
 
@@ -736,30 +548,6 @@ def parse (a : String) (pos : Nat) : PreReleaseIdentifier ⊕ ParserError :=
 
 end PreReleaseIdentifier
 
-section Examples
-
-#synth Repr PreReleaseIdentifier
-
-def pre_rel_ident_1 : PreReleaseIdentifier := Sum.inl alpha_ident_0
-def pre_rel_ident_2 : PreReleaseIdentifier := Sum.inr num_ident_0
-def pre_rel_ident_3 : PreReleaseIdentifier := Sum.inl alpha_ident_0
-
-#eval pre_rel_ident_1 -- Sum.inl "alpha2"
-#eval pre_rel_ident_2 -- Sum.inr "1234"
-#eval pre_rel_ident_3 -- Sum.inl "alpha2"
-
-#eval pre_rel_ident_1 = pre_rel_ident_2 -- false
-#eval pre_rel_ident_1 = pre_rel_ident_3 -- true
-#eval pre_rel_ident_1 < pre_rel_ident_3 -- false
-#eval pre_rel_ident_1 < pre_rel_ident_2 -- false
-#eval pre_rel_ident_2 < pre_rel_ident_1 -- true
-
-#eval PreReleaseIdentifier.parse "01234a" 0
-#eval PreReleaseIdentifier.parse "1234" 0
-#eval PreReleaseIdentifier.parse "01234" 0
-
-end Examples
-
 def DotSeparatedPreReleaseIdentifiers : Type := NonEmptyList PreReleaseIdentifier
 
 namespace DotSeparatedPreReleaseIdentifiers
@@ -780,19 +568,6 @@ def parse (a : String) (pos : Nat) : DotSeparatedPreReleaseIdentifiers ⊕ Parse
   NonEmptyList.parse a pos PreReleaseIdentifier.parse '.'
 
 end DotSeparatedPreReleaseIdentifiers
-
-section Examples
-
-#synth Repr DotSeparatedPreReleaseIdentifiers
-
-def dot_sep_pre_rel_ident_0 : DotSeparatedPreReleaseIdentifiers :=
-  ⟨[pre_rel_ident_1, pre_rel_ident_2], rfl⟩
-
-#eval dot_sep_pre_rel_ident_0.toString
-
-#eval DotSeparatedPreReleaseIdentifiers.parse "alpha.1-test" 0
-
-end Examples
 
 end PreReleaseIdentifiers
 
@@ -815,8 +590,6 @@ def toList (v : VersionCore) : List Nat := [v.major, v.minor, v.patch]
 def fromList (l : List Nat) (h : l.length = 3) : VersionCore :=
   match l with
   | [m,n,p] => {major := m, minor := n, patch := p}
-
-#eval fromList [1,2,3] rfl
 
 def lt (v w : VersionCore) : Prop := v.toList < w.toList
 
@@ -848,34 +621,12 @@ def parse (a : String) (pos : Nat) : VersionCore ⊕ ParserError :=
       .inl (fromList b h)
     else
       .inr {
-        message := "exactly three numbers must be provided - not one more, not one less",
+        message := "exactly three numbers - separated by '.' - must be provided - not one more, not one less",
         position := pos
       }
   | .inr e => .inr e
 
 end VersionCore
-
-section Examples
-
-#synth Repr VersionCore
-
-def version_core_0 := VersionCore.mk 1 2 3
-def version_core_1 := VersionCore.mk 1 3 0
-def version_core_2 := VersionCore.fromList [2, 0, 0] rfl
-
-#eval version_core_0
-#eval version_core_1
-#eval version_core_2
-#eval version_core_0 = version_core_1 -- false
-#eval version_core_0 < version_core_1 -- true
-#eval version_core_1 < version_core_2 -- true
-
-#eval VersionCore.parse "1.2.3" 0
-#eval VersionCore.parse "1.2.3.4" 0
-#eval VersionCore.parse "1.2" 0
-#eval VersionCore.parse "1.2.z" 0
-
-end Examples
 
 end VersionCores
 
@@ -903,8 +654,8 @@ instance : ToString Version := ⟨toString⟩
 private def ltPreRelease (a b : Version) : Bool :=
   match a.preRelease, b.preRelease with
   | some s, some t => (s.decLt t).decide
-  | some _, none
-  | none, none => true
+  | some _, none => true
+  | none, none
   | none, some _ => false
 
 def lt (v w : Version) : Prop :=
@@ -985,62 +736,49 @@ def parse (a : String) : Version ⊕ ParserError :=
       position := 0
     }
 
-def get! (p : Version ⊕ ParserError) : Version :=
+def doParserResult (p : Version ⊕ ParserError) : IO Version := do
   match p with
-  | .inl v => v
-  | .inr _ => panic "parer returned error"
+  | .inl v => return v
+  | .inr e => throw (IO.userError e.toString)
 
 end Version
 
-section Examples
-
-#eval version_core_0 -- { major := 1, minor := 2, patch := 3 }
-def version_0 :=  Version.mk version_core_0 none none
-#eval version_0 -- { toVersionCore := { major := 1, minor := 2, patch := 3 }, preRelease := none, build := none }
-
-#eval dot_sep_pre_rel_ident_0 -- [Sum.inl "alpha2", Sum.inr "1234"]
-def version_1 : Version := {
-      toVersionCore := { major := 1, minor := 3, patch := 3 },
-      preRelease := some dot_sep_pre_rel_ident_0,
-      build := none
-    }
-#eval version_1
-
-#eval dot_sep_build_ident_0 -- [Sum.inl "nightly-2025-09-06", Sum.inr "1234"]
-def version_2 : Version := {
-      toVersionCore := { major := 2, minor := 0, patch := 0 },
-      preRelease := some dot_sep_pre_rel_ident_0,
-      build := some dot_sep_build_ident_0
-    }
-
-#eval version_2 /-  { toVersionCore := { major := 2, minor := 0, patch := 0 },
-                      preRelease := some [Sum.inl "alpha2", Sum.inr "1234"],
-                      build := some [Sum.inl "nightly-2025-09-06", Sum.inr "1234"] } -/
-
-def version_3 : Version := {
-      toVersionCore := version_2.toVersionCore,
-      preRelease := version_2.preRelease,
-      build := none
-    }
-
-#eval version_3 /-  { toVersionCore := { major := 2, minor := 0, patch := 0 },
-                      preRelease := some [Sum.inl "alpha2", Sum.inr "1234"],
-                      build := none } -/
-
-#eval version_0 < version_1 -- true
-#eval version_1 < version_2 -- true
-#eval version_0 < version_2 -- true
-#eval version_2 < version_3 -- false
-
-#eval Version.parse "1.0.1-alpha.0.1023.xyz"
-#eval Version.parse "1.0.1.1-alpha.0.1023.xyz"
-
-
-#eval (Version.get! (Version.parse "1.0.1-alpha.0.1023.xyz")) < (Version.get! (Version.parse "1.0.1"))
-#eval Version.parse "1.0.1.1"
-
-end Examples
-
 end Versions
 
-end SemanticVersioning
+open Version
+
+def getVersion : IO Version := do
+
+  let input ← (← IO.getStdin).getLine
+  let trimmed := input.trim
+
+  if trimmed == "" then
+    throw (IO.userError "no data entered")
+
+  let version ← doParserResult (parse trimmed)
+
+  return version
+
+def main : IO Unit := do
+
+  try
+    IO.print "please enter the first version number --> "
+    let version_0 ← getVersion
+
+    IO.print "please enter the second version number -> "
+    let version_1 ← getVersion
+
+    IO.println "the internal representation of the first version number is:"
+    IO.println ((repr version_0).pretty 80 0)
+
+    IO.println "the internal representation of the second version number is:"
+    IO.println ((repr version_1).pretty 80 0)
+
+    IO.println "for the precedence of the first and second value, the following is true:"
+    if version_0 < version_1 then
+      IO.println s!"    {version_0} < {version_1}"
+    else
+      IO.println s!"  ¬ {version_0} < {version_1}"
+
+  catch e =>
+    IO.println e
