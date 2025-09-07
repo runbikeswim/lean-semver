@@ -14,13 +14,15 @@ instance : ToString ParserError := ⟨toString⟩
 
 end ParserError
 
-section Examples
-
-def parser_error_0 :=  { message := "example" , position := 42 : ParserError}
-
-end Examples
-
 end ParserErrors
+
+section ParserResults
+
+inductive ParserResult (α : Type)
+  | success : α → ParserResult α
+  | failure : ParserError → ParserResult α
+
+end ParserResults
 
 section NonEmptyLists
 /-!
@@ -61,31 +63,31 @@ def toDotSeparatedString {α : Type} [ToString α] (a : NonEmptyList α) : Strin
   String.intercalate "." (a.val.map (fun a => ToString.toString a))
 
 private def _parse {α : Type}
-  (a : List String) (pos: Nat) (parseElement : String → Nat → α ⊕ ParserError) :
-  (List α) ⊕ ParserError :=
+  (a : List String) (pos: Nat) (parseElement : String → Nat → ParserResult α) :
+  ParserResult (List α) :=
   match a with
   | c::t =>
     match parseElement c pos with
-    | .inl d =>
+    | .success d =>
       match _parse t (pos + c.length +1) parseElement with
-      | .inl s => .inl (d::s)
-      | .inr e => .inr e
-    | .inr e => .inr e
-  | [] => .inl []
+      | .success s => .success (d::s)
+      | .failure e => .failure e
+    | .failure e => .failure e
+  | [] => .success []
 
 protected def parse {α : Type}
-  (a : String) (pos: Nat) (parseElement : String → Nat → α ⊕ ParserError) (sep : Char):
-  (NonEmptyList α) ⊕ ParserError :=
+  (a : String) (pos: Nat) (parseElement : String → Nat →  ParserResult α) (sep : Char) :
+  ParserResult (NonEmptyList α) :=
 
   match _parse (a.split (· == sep)) pos parseElement with
-  | .inl s =>
+  | .success s =>
     if h : !s.isEmpty then
-      .inl ⟨s,h⟩
-    else .inr {
+      .success ⟨s,h⟩
+    else .failure {
         message := s!"list of strings separated by '{sep}' must not be empty",
         position := pos
       }
-  | .inr e => .inr e
+  | .failure e => .failure e
 
 end NonEmptyList
 
@@ -112,11 +114,11 @@ instance : LT NonEmptyString := ⟨lt⟩
 instance decidableLT (a b : NonEmptyString) :
   Decidable (a < b) := String.decidableLT a.val b.val
 
-def parse (a : String) (pos : Nat) : NonEmptyString ⊕ ParserError :=
+def parse (a : String) (pos : Nat) : ParserResult NonEmptyString :=
   if h: !a.isEmpty then
-    .inl ⟨a, h⟩
+    .success ⟨a, h⟩
   else
-    .inr {
+    .failure {
       message := "string must not be empty",
       position := pos : ParserError
     }
@@ -167,17 +169,17 @@ instance decidableLT (a b : Digits) : Decidable (a < b) :=
     have g : ¬ lt a b := by unfold lt; exact h
     isFalse g
 
-def parse (a : String) (pos : Nat) : Digits ⊕ ParserError :=
+def parse (a : String) (pos : Nat) : ParserResult Digits :=
   match NonEmptyString.parse a pos with
-  | .inl b =>
+  | .success b =>
     let c := b.containsOnlyDigits
     match g : c.fst with
-    | true => .inl ⟨b,g⟩
-    | false => .inr {
+    | true => .success ⟨b,g⟩
+    | false => .failure {
         message := "digits expected, but non-digit character found",
         position := pos + c.snd : ParserError
       }
-  | .inr e => .inr e
+  | .failure e => .failure e
 
 end Digits
 
@@ -218,17 +220,17 @@ instance : LT NumericIdentifier := ⟨lt⟩
 instance decidableLT (a b : NumericIdentifier) : Decidable (a < b) :=
   Digits.decidableLT a.val b.val
 
-def parse (a : String) (pos : Nat) : NumericIdentifier ⊕ ParserError :=
+def parse (a : String) (pos : Nat) : ParserResult NumericIdentifier  :=
   match Digits.parse a pos with
-  | .inl b =>
+  | .success b =>
     let c := b.hasNoLeadingZeros
     match g : c.fst with
-    | true => .inl ⟨b,g⟩
-    | false => .inr {
+    | true => .success ⟨b,g⟩
+    | false => .failure {
         message := "numeric identifiers must not have leading zeros",
         position := pos + c.snd : ParserError
       }
-  | .inr e => .inr e
+  | .failure e => .failure e
 
 end NumericIdentifier
 
@@ -263,17 +265,17 @@ instance : LT Identifier := ⟨lt⟩
 instance decidableLT (a b : Identifier) : Decidable (a < b) :=
   NonEmptyString.decidableLT a.val b.val
 
-def parse (a : String) (pos : Nat) : Identifier ⊕ ParserError :=
+def parse (a : String) (pos : Nat) : ParserResult Identifier :=
   match NonEmptyString.parse a pos with
-  | .inl b =>
+  | .success b =>
     let c := b.isIdentifier
     match g : c.fst with
-    | true => .inl ⟨b, g⟩
-    | false => .inr {
+    | true => .success ⟨b, g⟩
+    | false => .failure {
         message := "character is not in [0-9A-Za-z-]",
         position := pos + c.snd : ParserError
       }
-  | .inr e => .inr e
+  | .failure e => .failure e
 
 end Identifier
 
@@ -323,17 +325,17 @@ instance : LT AlphanumericIdentifier := ⟨lt⟩
 instance decidableLT (a b : AlphanumericIdentifier) : Decidable (a < b) :=
   Identifier.decidableLT a.val b.val
 
-def parse (a : String) (pos : Nat) : AlphanumericIdentifier ⊕ ParserError :=
+def parse (a : String) (pos : Nat) : ParserResult AlphanumericIdentifier :=
   match Identifier.parse a pos with
-  | .inl b =>
+  | .success b =>
     let c := b.containsNonDigit
     match g : c.fst with
-    | true => .inl ⟨b,g⟩
-    | false => .inr {
+    | true => .success ⟨b,g⟩
+    | false => .failure {
         message := "alphanumeric identifier must contain a non-digit character",
         position := pos + c.snd
       }
-  | .inr e => .inr e
+  | .failure e => .failure e
 
 end AlphanumericIdentifier
 
@@ -483,13 +485,13 @@ instance : DecidableLT BuildIdentifier := decLt
 def toString (a : BuildIdentifier) := DecOrderedSum.toString a
 instance : ToString BuildIdentifier := ⟨toString⟩
 
-def parse (a : String) (pos : Nat) : BuildIdentifier ⊕ ParserError :=
+def parse (a : String) (pos : Nat) : ParserResult BuildIdentifier :=
   match AlphanumericIdentifier.parse a pos with
-  | .inl ba => .inl (.inl ba)
-  | .inr ea =>
+  | .success ba => .success (.inl ba)
+  | .failure ea =>
     match Digits.parse a pos with
-    | .inl bd => .inl (.inr bd)
-    | .inr ed => .inr {
+    | .success bd => .success (.inr bd)
+    | .failure ed => .failure {
         message := "neither alphanumeric identifier nor digits found"
         position := Nat.max ea.position ed.position
       }
@@ -506,7 +508,7 @@ def toString : DotSeparatedBuildIdentifiers → String := NonEmptyList.toDotSepa
 
 instance : ToString DotSeparatedBuildIdentifiers := ⟨toString⟩
 
-def parse (a : String) (pos : Nat) : DotSeparatedBuildIdentifiers ⊕ ParserError :=
+def parse (a : String) (pos : Nat) : ParserResult DotSeparatedBuildIdentifiers :=
   NonEmptyList.parse a pos BuildIdentifier.parse '.'
 
 end DotSeparatedBuildIdentifiers
@@ -535,13 +537,13 @@ instance : DecidableLT PreReleaseIdentifier := decLt
 def toString (a : PreReleaseIdentifier) := DecOrderedSum.toString a
 instance : ToString PreReleaseIdentifier := ⟨toString⟩
 
-def parse (a : String) (pos : Nat) : PreReleaseIdentifier ⊕ ParserError :=
+def parse (a : String) (pos : Nat) : ParserResult PreReleaseIdentifier  :=
   match AlphanumericIdentifier.parse a pos with
-  | .inl ba => .inl (.inl ba)
-  | .inr ea =>
+  | .success ba => .success (.inl ba)
+  | .failure ea =>
     match NumericIdentifier.parse a pos with
-    | .inl bd => .inl (.inr bd)
-    | .inr ed => .inr {
+    | .success bd => .success (.inr bd)
+    | .failure ed => .failure {
         message := "neither alphanumeric nor numeric identifier found"
         position := Nat.max ea.position ed.position
       }
@@ -564,7 +566,7 @@ def toString : DotSeparatedPreReleaseIdentifiers → String := NonEmptyList.toDo
 
 instance : ToString DotSeparatedPreReleaseIdentifiers := ⟨toString⟩
 
-def parse (a : String) (pos : Nat) : DotSeparatedPreReleaseIdentifiers ⊕ ParserError :=
+def parse (a : String) (pos : Nat) : ParserResult DotSeparatedPreReleaseIdentifiers  :=
   NonEmptyList.parse a pos PreReleaseIdentifier.parse '.'
 
 end DotSeparatedPreReleaseIdentifiers
@@ -599,32 +601,32 @@ def decLt (v w : VersionCore) : Decidable (v < w) := v.toList.decidableLT w.toLi
 
 instance : DecidableLT VersionCore := decLt
 
-def parse (a : String) (pos : Nat) : VersionCore ⊕ ParserError :=
+def parse (a : String) (pos : Nat) : ParserResult VersionCore  :=
 
-  let rec helper : (List String) → Nat → (List Nat) ⊕ ParserError
-    | [], _ => .inl []
+  let rec helper : (List String) → Nat → ParserResult (List Nat)
+    | [], _ => .success []
     | c::t, p =>
       match c.toNat? with
       | some d =>
         match helper t (p + c.length + 1) with
-        | .inl s => .inl (d::s)
-        | .inr e => .inr e
+        | .success s => .success (d::s)
+        | .failure e => .failure e
       | none =>
-        .inr {
+        .failure {
           message := "must be natural number",
           position := p
         }
 
   match helper (a.split (· == '.')) pos with
-  | .inl b =>
+  | .success b =>
     if h : b.length = 3 then
-      .inl (fromList b h)
+      .success (fromList b h)
     else
-      .inr {
+      .failure {
         message := "exactly three numbers - separated by '.' - must be provided - not one more, not one less",
         position := pos
       }
-  | .inr e => .inr e
+  | .failure e => .failure e
 
 end VersionCore
 
@@ -683,63 +685,64 @@ def decLt (v w : Version) : Decidable (v < w) :=
 
 instance : DecidableLT Version := decLt
 
-private def _parseTail (a : String) (pos : Nat) (sep : Char) :
-  (Option DotSeparatedPreReleaseIdentifiers × Option DotSeparatedBuildIdentifiers) ⊕ ParserError :=
-  match a with
-  | "" => .inl (none, none)
-  | b =>
+private def _parseTail (str : String) (pos : Nat) (sep : Char) :
+  ParserResult (Option DotSeparatedPreReleaseIdentifiers × Option DotSeparatedBuildIdentifiers) :=
+  match str with
+  | "" => .success (none, none)
+  | ne_str =>
     match sep with
     | '+' =>
-      match DotSeparatedBuildIdentifiers.parse a pos with
-      | .inl bs => .inl (none, some bs)
-      | .inr e => .inr e
+      match DotSeparatedBuildIdentifiers.parse str pos with
+      | .success bs => .success (none, some bs)
+      | .failure e => .failure e
     | '-' =>
-      match b.split (· == '+') with
-      | ps::t =>
-        match DotSeparatedPreReleaseIdentifiers.parse ps pos with
-        | .inl pps =>
-          match t with
-          | [bs] =>
-            match DotSeparatedBuildIdentifiers.parse bs (pos + 1 + ps.length) with
-            | .inl pbs => .inl (some pps, some pbs)
-            | .inr e => .inr e
-          | [] => .inl (some pps, none)
-          | _ => .inr {
+      match ne_str.split (· == '+') with
+      | pre_rel_str::tail =>
+        match DotSeparatedPreReleaseIdentifiers.parse pre_rel_str pos with
+        | .success pre_rel =>
+          match tail with
+          | [build_str] =>
+            match DotSeparatedBuildIdentifiers.parse build_str (pos + 1 + pre_rel_str.length) with
+            | .success build => .success (some pre_rel, some build)
+            | .failure e => .failure e
+          | [] => .success (some pre_rel, none)
+          | _ => .failure {
                     message := "versions cannot contain more than one plus-sign",
-                    position := pos + 1 + ps.length
+                    position := pos + 1 + pre_rel_str.length
                   }
-        | .inr e => .inr e
-      | [] => .inr {
+        | .failure e => .failure e
+      | [] => .failure {
                 message := "internal error - split returns empty list",
                 position := 0
               }
-    | x => .inr {
+    | x => .failure {
                 message := s!"internal error - separator '{x}' found, where '+' or '-' are expected",
                 position := 0
             }
 
-def parse (a : String) : Version ⊕ ParserError :=
+def parse (a : String) : ParserResult Version :=
   match a.split (fun c : Char => c == '-' || c == '+') with
-  | c::_ =>
-    match VersionCore.parse c 0 with
-    | .inl d =>
-        let pos := c.length + 1
-        match _parseTail (a.extract ⟨pos⟩ ⟨a.length + 1⟩) (pos) (a.get ⟨c.length⟩) with
-        | .inl (p, b) => .inl {
-                              major := d.major, minor := d.minor, patch := d.patch,
-                              preRelease := p, build := b
-                          }
-        | .inr e => .inr e
-    | .inr e => .inr e
-  | [] => .inr {
+  | core_str::_ =>
+    match VersionCore.parse core_str 0 with
+    | .success core =>
+        let pos := core_str.length + 1
+        match _parseTail (a.extract ⟨pos⟩ ⟨a.length + 1⟩) (pos) (a.get ⟨core_str.length⟩) with
+        | .success (pre_rel, build) =>
+            .success {
+              major := core.major, minor := core.minor, patch := core.patch,
+              preRelease := pre_rel, build := build
+            }
+        | .failure e => .failure e
+    | .failure e => .failure e
+  | [] => .failure {
       message := "internal error - split returns empty list",
       position := 0
     }
 
-def doParserResult (p : Version ⊕ ParserError) : IO Version := do
-  match p with
-  | .inl v => return v
-  | .inr e => throw (IO.userError e.toString)
+def doParserResult (res : ParserResult Version) : IO Version := do
+  match res with
+  | .success version => return version
+  | .failure e => throw (IO.userError e.toString)
 
 end Version
 
