@@ -8,7 +8,7 @@ SemVer defines a way to define version numbers, based on
 * a notion of precedence for version and
 * rules for increasing version numbers in case of changes
 
-This repository contains an implementation of SemVer in Lean in file [semver.lean](blob/main/semver.lean) with
+This repository contains an implementation of SemVer in Lean in file [semver.lean] with
 1. types coincide with the symbols the BNF specification
 1. functions for `<` and `DecidableLT` for comparing two version based on the precedence for two semantic versions
 1. parsers for converting strings into terms of the aforementioned types
