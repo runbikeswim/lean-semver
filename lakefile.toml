@@ -1,0 +1,10 @@
+name = "lean-semver"
+version = "0.1.0"
+defaultTargets = ["lean-semver"]
+
+[[lean_lib]]
+name = "LeanSemver"
+
+[[lean_exe]]
+name = "lean-semver"
+root = "Main"
