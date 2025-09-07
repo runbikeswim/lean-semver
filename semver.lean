@@ -994,32 +994,47 @@ end Version
 
 section Examples
 
+#eval version_core_0 -- { major := 1, minor := 2, patch := 3 }
 def version_0 :=  Version.mk version_core_0 none none
-#eval version_0
+#eval version_0 -- { toVersionCore := { major := 1, minor := 2, patch := 3 }, preRelease := none, build := none }
 
+#eval dot_sep_pre_rel_ident_0 -- [Sum.inl "alpha2", Sum.inr "1234"]
 def version_1 : Version := {
-    toVersionCore := { major := 1, minor := 3, patch := 3 },
-    preRelease := some dot_sep_pre_rel_ident_0,
-    build := none
-  }
-
-def version_2 : Version := {
-    toVersionCore := { major := 2, minor := 0, patch := 0 },
-    preRelease := some dot_sep_pre_rel_ident_0,
-    build := some dot_sep_build_ident_0
-  }
-
-#eval version_0
-#eval version_0.toString
-
+      toVersionCore := { major := 1, minor := 3, patch := 3 },
+      preRelease := some dot_sep_pre_rel_ident_0,
+      build := none
+    }
 #eval version_1
-#eval version_1.toString
 
-#eval version_2
-#eval version_2.toString
+#eval dot_sep_build_ident_0 -- [Sum.inl "nightly-2025-09-06", Sum.inr "1234"]
+def version_2 : Version := {
+      toVersionCore := { major := 2, minor := 0, patch := 0 },
+      preRelease := some dot_sep_pre_rel_ident_0,
+      build := some dot_sep_build_ident_0
+    }
+
+#eval version_2 /-  { toVersionCore := { major := 2, minor := 0, patch := 0 },
+                      preRelease := some [Sum.inl "alpha2", Sum.inr "1234"],
+                      build := some [Sum.inl "nightly-2025-09-06", Sum.inr "1234"] } -/
+
+def version_3 : Version := {
+      toVersionCore := version_2.toVersionCore,
+      preRelease := version_2.preRelease,
+      build := none
+    }
+
+#eval version_3 /-  { toVersionCore := { major := 2, minor := 0, patch := 0 },
+                      preRelease := some [Sum.inl "alpha2", Sum.inr "1234"],
+                      build := none } -/
 
 #eval version_0 < version_1 -- true
+#eval version_1 < version_2 -- true
 #eval version_0 < version_2 -- true
+#eval version_2 < version_3 -- false
+
+#eval Version.parse "1.0.1-alpha.0.1023.xyz"
+#eval Version.parse "1.0.1.1-alpha.0.1023.xyz"
+
 
 #eval (Version.get! (Version.parse "1.0.1-alpha.0.1023.xyz")) < (Version.get! (Version.parse "1.0.1"))
 #eval Version.parse "1.0.1.1"
