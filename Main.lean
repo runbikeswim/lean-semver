@@ -8,7 +8,7 @@ deriving Repr
 namespace ParserError
 
 def toString (e : ParserError) : String :=
-  s!"Error in position {e.position}: {e.message}"
+  s!"error in position {e.position}: {e.message}"
 
 instance : ToString ParserError := ⟨toString⟩
 
@@ -419,7 +419,7 @@ def parse (str : String) (pos : Nat) : ParserResult BuildIdentifier :=
     match Digits.parse str pos with
     | .success dig => .success (.inr dig)
     | .failure e2 => .failure {
-        message := "neither alphanumeric identifier nor digits found"
+        message := s!"neither alphanumeric identifier nor digits found because\n1. {e1.message} in position {e1.position}\n2. {e2.message} in position {e2.position}"
         position := Nat.max e1.position e2.position
       }
 
@@ -465,7 +465,7 @@ def parse (str : String) (pos : Nat) : ParserResult PreReleaseIdentifier  :=
     match NumericIdentifier.parse str pos with
     | .success ni => .success (.inr ni)
     | .failure e2 => .failure {
-        message := "neither alphanumeric nor numeric identifier found"
+        message := s!"neither alphanumeric nor numeric identifier found because \n1. {e1.message} in position {e1.position}\n2. {e2.message} in position {e2.position}"
         position := Nat.max e1.position e2.position
       }
 
