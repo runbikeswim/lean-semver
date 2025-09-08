@@ -13,7 +13,6 @@ def toString (e : ParserError) : String :=
 instance : ToString ParserError := ⟨toString⟩
 
 end ParserError
-
 end ParserErrors
 
 section ParserResults
@@ -25,14 +24,6 @@ inductive ParserResult (α : Type)
 end ParserResults
 
 section NonEmptyLists
-/-!
-for all rules of type
-```
-  <items> ::= <item>
-            | <item> <separator> <items>
-```
-for non-empty lists of items
--/
 
 def NonEmptyList (α : Type) : Type := {l: List α // !l.isEmpty}
 
@@ -62,35 +53,32 @@ instance (α : Type) [Repr α] : Repr (NonEmptyList α) := ⟨repr⟩
 def toDotSeparatedString {α : Type} [ToString α] (a : NonEmptyList α) : String :=
   String.intercalate "." (a.val.map (fun a => ToString.toString a))
 
-private def _parse {α : Type}
-  (lstr : List String) (pos: Nat) (parseElement : String → Nat → ParserResult α) :
-  ParserResult (List α) :=
-  match lstr with
-  | chr::tail =>
-    match parseElement chr pos with
-    | .success res =>
-      match _parse tail (pos + chr.length +1) parseElement with
-      | .success lres => .success (res::lres)
-      | .failure e => .failure e
-    | .failure e => .failure e
-  | [] => .success []
-
-def parse {α : Type}
-  (str : String) (pos: Nat) (parseElement : String → Nat →  ParserResult α) (sep : Char) :
+def parse {α : Type} (str : String) (pos: Nat) (parseElement : String → Nat →  ParserResult α) (sep : Char) :
   ParserResult (NonEmptyList α) :=
 
-  match _parse (str.split (· == sep)) pos parseElement with
+  let rec helper (lstr : List String) (pos: Nat) (parseElement : String → Nat → ParserResult α) :
+    ParserResult (List α) :=
+    match lstr with
+    | chr::tail =>
+      match parseElement chr pos with
+      | .success res =>
+        match helper tail (pos + chr.length +1) parseElement with
+        | .success lres => .success (res::lres)
+        | .failure e => .failure e
+      | .failure e => .failure e
+    | [] => .success []
+
+  match helper (str.split (· == sep)) pos parseElement with
   | .success res =>
     if h : !res.isEmpty then
       .success ⟨res, h⟩
     else .failure {
-        message := s!"list of strings separated by '{sep}' must not be empty",
-        position := pos
-      }
+            message := s!"list of strings separated by '{sep}' must not be empty",
+            position := pos
+          }
   | .failure e => .failure e
 
 end NonEmptyList
-
 end NonEmptyLists
 
 section NonEmptyStrings
@@ -124,29 +112,22 @@ def parse (str : String) (pos : Nat) : ParserResult NonEmptyString :=
     }
 
 end NonEmptyString
-
 end NonEmptyStrings
 
 section Digits
-/-!
-```
-<digits> ::= <digit>
-           | <digit> <digits>
-```
-i.e. arbitrary sequences of digits
--/
 
 def NonEmptyString.containsOnlyDigits (s: NonEmptyString) : Bool × Nat:=
   let rec helper : (List Char) → Nat → Bool × Nat
     | chr::tail, pos => if chr.isDigit then helper tail (pos + 1) else (false, pos)
     | _, pos => (true, pos)
+
   helper s.val.data 0
 
 def Digits : Type := { s : NonEmptyString // s.containsOnlyDigits.fst = true }
 
 /-
 Beware: = and DecidableEq are based on String
-but < and decidableLT on Nat - see below
+but < and decidableLT on Nat - see lt below
 -/
 deriving instance DecidableEq for Digits
 deriving instance ToString for Digits
@@ -156,7 +137,7 @@ namespace Digits
 
 def toNat (d : Digits) : Nat := d.val.val.toNat!
 
--- compare as numbers
+/- compare as numbers -/
 def lt (a b : Digits) : Prop := a.toNat < b.toNat
 
 instance : LT Digits := ⟨lt⟩
@@ -182,18 +163,9 @@ def parse (str : String) (pos : Nat) : ParserResult Digits :=
   | .failure e => .failure e
 
 end Digits
-
 end Digits
 
 section NumericIdentifiers
-/-!
-```
-<numeric identifier> ::= "0"
-                       | <positive digit>
-                       | <positive digit> <digits>
-```
-i.e. digits without leading zeros
--/
 
 def Digits.hasNoLeadingZeros (d: Digits) : Bool × Nat :=
   let helper : (List Char) → Nat → Bool × Nat
@@ -233,7 +205,6 @@ def parse (str : String) (pos : Nat) : ParserResult NumericIdentifier  :=
   | .failure e => .failure e
 
 end NumericIdentifier
-
 end NumericIdentifiers
 
 section Identifiers
@@ -267,6 +238,7 @@ instance decidableLT (a b : Identifier) : Decidable (a < b) :=
 
 def parse (str : String) (pos : Nat) : ParserResult Identifier :=
   match NonEmptyString.parse str pos with
+  | .failure e => .failure e
   | .success nes =>
     let isi := nes.isIdentifier
     match g : isi.fst with
@@ -275,32 +247,11 @@ def parse (str : String) (pos : Nat) : ParserResult Identifier :=
         message := "character is not in [0-9A-Za-z-]",
         position := pos + isi.snd : ParserError
       }
-  | .failure e => .failure e
 
 end Identifier
-
 end Identifiers
 
 section AlphaNumericIdentifiers
-/-!
-```
-<alphanumeric identifier> ::= <non-digit>
-                            | <non-digit> <identifier characters>
-                            | <identifier characters> <non-digit>
-                            | <identifier characters> <non-digit> <identifier characters>
-
-<non-digit> ::= <letter>
-              | "-"
-
-<identifier characters> ::= <identifier character>
-                          | <identifier character> <identifier characters>
-
-<identifier character> ::= <digit>
-                         | <non-digit>
-```
-i.e. any identifier that contains at list one non-digit
-(upper/lower-case ASCII-letter or hyphen)
--/
 
 def Identifier.containsNonDigit (i: Identifier) : Bool × Nat:=
   let rec helper : (List Char) → Nat →  Bool × Nat
@@ -338,22 +289,18 @@ def parse (str : String) (pos : Nat) : ParserResult AlphanumericIdentifier :=
   | .failure e => .failure e
 
 end AlphanumericIdentifier
-
 end AlphaNumericIdentifiers
 
 section DecOrderedSums
 
 def DecOrderedSum (α β : Type)
-  [DecidableEq α] [DecidableEq β]
-  [LT α] [LT β]
-  [DecidableLT α] [DecidableLT β]
-  [ToString α] [ToString β] : Type := α ⊕ β
+  [DecidableEq α] [DecidableEq β] [LT α] [LT β]
+  [DecidableLT α] [DecidableLT β] [ToString α] [ToString β] :
+  Type := α ⊕ β
 
 instance {α β : Type}
-  [DecidableEq α] [DecidableEq β]
-  [LT α] [LT β]
-  [DecidableLT α] [DecidableLT β]
-  [Repr α] [Repr β]
+  [DecidableEq α] [DecidableEq β] [LT α] [LT β]
+  [DecidableLT α] [DecidableLT β] [Repr α] [Repr β]
   [ToString α] [ToString β] :
   Repr (DecOrderedSum α β) where reprPrec :=
     fun (a : DecOrderedSum α β) (n : Nat) => (a : Sum α β).repr n
@@ -389,17 +336,13 @@ def decEq {α β : Type}
   | .inr s, .inl t => isFalse (by simp)
 
 instance {α β : Type}
-  [DecidableEq α] [DecidableEq β]
-  [LT α] [LT β]
-  [DecidableLT α] [DecidableLT β]
-  [ToString α] [ToString β]:
+  [DecidableEq α] [DecidableEq β] [LT α] [LT β]
+  [DecidableLT α] [DecidableLT β] [ToString α] [ToString β]:
   DecidableEq (DecOrderedSum α β) := decEq
 
 def lt {α β : Type}
-  [DecidableEq α] [DecidableEq β]
-  [LT α] [LT β]
-  [DecidableLT α] [DecidableLT β]
-  [ToString α] [ToString β]
+  [DecidableEq α] [DecidableEq β] [LT α] [LT β]
+  [DecidableLT α] [DecidableLT β] [ToString α] [ToString β]
   (a b : DecOrderedSum α β) : Prop :=
   match a, b with
   | .inl s, .inl t
@@ -408,17 +351,13 @@ def lt {α β : Type}
   | .inr _, .inl _ => True -- β < α
 
 instance (α β : Type)
-  [DecidableEq α] [DecidableEq β]
-  [LT α] [LT β]
-  [DecidableLT α] [DecidableLT β]
-  [ToString α] [ToString β]:
+  [DecidableEq α] [DecidableEq β] [LT α] [LT β]
+  [DecidableLT α] [DecidableLT β] [ToString α] [ToString β]:
   LT (DecOrderedSum α β) := ⟨lt⟩
 
 def decLt {α β : Type}
-  [DecidableEq α] [DecidableEq β]
-  [LT α] [LT β]
-  [DecidableLT α] [DecidableLT β]
-  [ToString α] [ToString β]
+  [DecidableEq α] [DecidableEq β] [LT α] [LT β]
+  [DecidableLT α] [DecidableLT β] [ToString α] [ToString β]
   (a b : DecOrderedSum α β) : Decidable (a < b) :=
   match ha: a, hb: b with
   | .inl s, .inl t
@@ -431,26 +370,20 @@ def decLt {α β : Type}
       isFalse g
 
 instance (α β : Type)
-  [DecidableEq α] [DecidableEq β]
-  [LT α] [LT β]
-  [DecidableLT α] [DecidableLT β]
-  [ToString α] [ToString β] :
+  [DecidableEq α] [DecidableEq β] [LT α] [LT β]
+  [DecidableLT α] [DecidableLT β] [ToString α] [ToString β] :
   DecidableLT (DecOrderedSum α β) := decLt
 
 def toString {α β : Type}
-  [DecidableEq α] [DecidableEq β]
-  [LT α] [LT β]
-  [DecidableLT α] [DecidableLT β]
-  [ToString α] [ToString β]
+  [DecidableEq α] [DecidableEq β] [LT α] [LT β]
+  [DecidableLT α] [DecidableLT β] [ToString α] [ToString β]
   (a : DecOrderedSum α β) : String :=
   match a with
   | .inl s | .inr s => ToString.toString s
 
 instance (α β : Type)
-  [DecidableEq α] [DecidableEq β]
-  [LT α] [LT β]
-  [DecidableLT α] [DecidableLT β]
-  [ToString α] [ToString β] :
+  [DecidableEq α] [DecidableEq β] [LT α] [LT β]
+  [DecidableLT α] [DecidableLT β] [ToString α] [ToString β] :
   ToString (DecOrderedSum α β) := ⟨toString⟩
 
 end DecOrderedSum
@@ -458,14 +391,8 @@ end DecOrderedSum
 end DecOrderedSums
 
 section BuildIdentifiers
-/-!
-```
-<build identifier> ::= <alphanumeric identifier>
-                     | <digits>
-```
--/
 
--- Numeric identifiers always have lower precedence than non-numeric identifiers
+/- Numeric identifiers always have lower precedence than non-numeric identifiers -/
 def BuildIdentifier : Type := DecOrderedSum AlphanumericIdentifier Digits
 
 deriving instance Repr for BuildIdentifier
@@ -516,12 +443,6 @@ end DotSeparatedBuildIdentifiers
 end BuildIdentifiers
 
 section PreReleaseIdentifiers
-/-!
-```
-<pre-release identifier> ::= <alphanumeric identifier>
-                           | <numeric identifier>
-```
--/
 
 def PreReleaseIdentifier : Type := DecOrderedSum AlphanumericIdentifier NumericIdentifier
 
@@ -601,7 +522,8 @@ def decLt (v w : VersionCore) : Decidable (v < w) := v.toList.decidableLT w.toLi
 
 instance : DecidableLT VersionCore := decLt
 
-def parse (str : String) (pos : Nat) : ParserResult VersionCore  :=
+def parse (str : String) : ParserResult VersionCore  :=
+
   let rec helper : (List String) → Nat → ParserResult (List Nat)
     | [], _ => .success []
     | chr::tail, pos =>
@@ -616,19 +538,18 @@ def parse (str : String) (pos : Nat) : ParserResult VersionCore  :=
           position := pos
         }
 
-  match helper (str.split (· == '.')) pos with
+  match helper (str.split (· == '.')) 0 with
+  | .failure e => .failure e
   | .success vcr =>
     if h : vcr.length = 3 then
       .success (fromList vcr h)
     else
       .failure {
         message := "exactly three numbers - separated by '.' - must be provided, not one more, not one less",
-        position := pos
+        position := 0
       }
-  | .failure e => .failure e
 
 end VersionCore
-
 end VersionCores
 
 section Versions
@@ -654,10 +575,9 @@ instance : ToString Version := ⟨toString⟩
 
 private def ltPreRelease (a b : Version) : Bool :=
   match a.preRelease, b.preRelease with
-  | some s, some t => (s.decLt t).decide
   | some _, none => true
-  | none, none
-  | none, some _ => false
+  | some s, some t => (s.decLt t).decide
+  | none, none | none, some _ => false
 
 def lt (v w : Version) : Prop :=
   (v.toVersionCore < w.toVersionCore) ∨
@@ -684,59 +604,57 @@ def decLt (v w : Version) : Decidable (v < w) :=
 
 instance : DecidableLT Version := decLt
 
-private def _parseTail (str : String) (pos : Nat) (sep : Char) :
-  ParserResult (Option DotSeparatedPreReleaseIdentifiers × Option DotSeparatedBuildIdentifiers) :=
-  match str with
-  | "" => .success (none, none)
-  | ne_str =>
-    match sep with
-    | '+' =>
-      match DotSeparatedBuildIdentifiers.parse str pos with
-      | .success build => .success (none, some build)
-      | .failure e => .failure e
-    | '-' =>
-      match ne_str.split (· == '+') with
-      | pre_rel_str::tail =>
-        match DotSeparatedPreReleaseIdentifiers.parse pre_rel_str pos with
-        | .success pre_rel =>
-          match tail with
-          | [build_str] =>
-            match DotSeparatedBuildIdentifiers.parse build_str (pos + 1 + pre_rel_str.length) with
-            | .success build => .success (some pre_rel, some build)
-            | .failure e => .failure e
-          | [] => .success (some pre_rel, none)
-          | _ => .failure {
-                    message := "versions cannot contain more than one plus-sign",
-                    position := pos + 1 + pre_rel_str.length
-                  }
-        | .failure e => .failure e
-      | [] => .failure {
-                message := "internal error - split returns empty list",
-                position := 0
-              }
-    | x => .failure {
-                message := s!"internal error - separator '{x}' found, where '+' or '-' are expected",
-                position := 0
-            }
-
-def parse (a : String) : ParserResult Version :=
-  match a.split (fun c : Char => c == '-' || c == '+') with
-  | core_str::_ =>
-    match VersionCore.parse core_str 0 with
-    | .success core =>
-        let pos := core_str.length + 1
-        match _parseTail (a.extract ⟨pos⟩ ⟨a.length + 1⟩) (pos) (a.get ⟨core_str.length⟩) with
-        | .success (pre_rel, build) =>
-            .success {
-              major := core.major, minor := core.minor, patch := core.patch,
-              preRelease := pre_rel, build := build
-            }
-        | .failure e => .failure e
-    | .failure e => .failure e
+def parseCorePreRel (str : String) :
+  ParserResult (VersionCore × Option DotSeparatedPreReleaseIdentifiers) :=
+  match str.split (· == '-') with
   | [] => .failure {
-      message := "internal error - split returns empty list",
-      position := 0
-    }
+            message := "internal error - split returns empty list",
+            position := 0
+          }
+  | core_str::tail =>
+    let pre_rel_str := String.intercalate "-" tail
+    let core_res := VersionCore.parse core_str
+    match core_res with
+    | .failure e => .failure e
+    | .success core =>
+      if pre_rel_str == "" then
+        .success (core, none)
+      else
+        match DotSeparatedPreReleaseIdentifiers.parse pre_rel_str (core_str.length + 1) with
+        | .success pre_rel => .success (core, some pre_rel)
+        | .failure e => .failure e
+
+def parse (str : String) : ParserResult Version :=
+  match str.split (· == '+') with
+  | [] => .failure {
+            message := "internal error - split returns empty list",
+            position := 0
+          }
+  | [core_pre_rel_str] =>
+      match parseCorePreRel core_pre_rel_str  with
+      | .failure e => .failure e
+      | .success core_pre_rel_res =>
+          .success {
+            toVersionCore := core_pre_rel_res.fst,
+            preRelease := core_pre_rel_res.snd,
+            build := none
+          }
+  | [core_pre_rel_str, build_str] =>
+    match parseCorePreRel core_pre_rel_str with
+    | .failure e => .failure e
+    | .success core_pre_rel_res =>
+      match DotSeparatedBuildIdentifiers.parse build_str (core_pre_rel_str.length + 1) with
+      | .failure e => .failure e
+      | .success build_res =>
+          .success {
+            toVersionCore := core_pre_rel_res.fst,
+            preRelease := core_pre_rel_res.snd,
+            build := some build_res
+          }
+  | head::_ => .failure  {
+                    message := "versions cannot contain more than one plus-sign",
+                    position := head.length + 1
+                  }
 
 def doParserResult (res : ParserResult Version) : IO Version := do
   match res with
@@ -744,7 +662,6 @@ def doParserResult (res : ParserResult Version) : IO Version := do
   | .failure e => throw (IO.userError e.toString)
 
 end Version
-
 end Versions
 
 open Version
@@ -752,13 +669,7 @@ open Version
 def getVersion : IO Version := do
 
   let input ← (← IO.getStdin).getLine
-  let trimmed := input.trim
-
-  if trimmed == "" then
-    throw (IO.userError "no data entered")
-
-  let version ← doParserResult (parse trimmed)
-
+  let version ← doParserResult (parse input.trim)
   return version
 
 def main : IO Unit := do
