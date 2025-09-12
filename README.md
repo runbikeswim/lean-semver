@@ -1,4 +1,4 @@
-# An Implementation of [Semantic Versioning (SemVer)](https://semver.org/) in [Lean](https://github.com/leanprover/lean4)
+# An Implementation of [Semantic Versioning (SemVer)](https://semver.org/) in [Lean](https://lean-lang.org/)
 
 ## About 
 
