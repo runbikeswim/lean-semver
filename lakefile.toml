@@ -1,6 +1,9 @@
 name = "lean-semver"
-version = "0.1.0"
+version = "0.7.0"
 defaultTargets = ["lean-semver"]
+
+[[lean_lib]]
+name = "SemVer"
 
 [[lean_exe]]
 name = "lean-semver"

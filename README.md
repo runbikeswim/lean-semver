@@ -2,16 +2,23 @@
 
 ## About 
 
-Semantic Versioning defines a way to use versions, based on
-* a grammar in Backus–Naur Form (BNF) for valid versions identifiers
+[Semantic Versioning (SemVer)](https://semver.org/) defines a way to use versions, based on
+* a grammar in Backus–Naur Form (BNF) for valid versions identifiers,
 * a notion of precedence for version identifiers and
-* rules for increasing version identifiers in case of changes
+* rules for increasing version identifiers in case of changes.
 
-This repository contains an implementation of Semantic Versioning in Lean in file [Main.lean](Main.lean). 
+This repository contains an implementation of Semantic Versioning in Lean in file [SemVer/Basic.lean](SemVer/Basic.lean). 
+
 It defines
-1. types that coincide with the symbols the BNF specification,
-1. functions for comparing two versions based on the precedence for two semantic versions (using  `<`) and
+1. types that coincide with the symbols of the BNF specification,
+1. functions `lt` and `decLt` for most of the types so that comparing two versions based on the precedence for two versions is possible and
 1. parsers for converting strings into terms of the aforementioned types.
+
+Thus, it can be used for
+1. checking if a string complies to the syntax of versions 
+1. determining if for two versions, _a_ and _b_, _a < b_ holds tue, i.e. if _a_ has lower precedence than _b_
+
+as defined by Sematic Versioning.
 
 ## How to run it
 
@@ -35,35 +42,47 @@ The following two examples show the out put of program `lean-semver` and user in
 #### Example 1
 
 ```
-please enter the first version identifier --> 1.1.2-alpha1+2025-09-07.16-23-57
-please enter the second version identifier -> 1.1.2-alpha1+2025-09-07.17-03-42
-the internal representation of the first version identifier is:
+please enter the first version identifier --> 1.1.2-alpha.beta.gamma.2+2025-09-07.17-03-42.0000
+please enter the second version identifier -> 1.1.2-alpha.beta.gamma.10+2025-09-07.16-23-57.0001
+the term representing the first version identifier is:
 { toVersionCore := { major := 1, minor := 1, patch := 2 },
-  preRelease := some [Sum.inl "alpha1"],
-  build := some [Sum.inl "2025-09-07", Sum.inl "16-23-57"] }
-the internal representation of the second version identifier is:
+  preRelease := some [PreRelIdent.alphanumIdent "alpha",
+                 PreRelIdent.alphanumIdent "beta",
+                 PreRelIdent.alphanumIdent "gamma",
+                 PreRelIdent.numIdent "2"],
+  build := some [BuildIdent.alphanumIdent "2025-09-07", BuildIdent.alphanumIdent "17-03-42", BuildIdent.digits "0000"] }
+the term representing the second version identifier is:
 { toVersionCore := { major := 1, minor := 1, patch := 2 },
-  preRelease := some [Sum.inl "alpha1"],
-  build := some [Sum.inl "2025-09-07", Sum.inl "17-03-42"] }
+  preRelease := some [PreRelIdent.alphanumIdent "alpha",
+                 PreRelIdent.alphanumIdent "beta",
+                 PreRelIdent.alphanumIdent "gamma",
+                 PreRelIdent.numIdent "10"],
+  build := some [BuildIdent.alphanumIdent "2025-09-07", BuildIdent.alphanumIdent "16-23-57", BuildIdent.digits "0001"] }
 for the precedence of the first and second version, the following is true:
-  ¬ 1.1.2-alpha1+2025-09-07.16-23-57 < 1.1.2-alpha1+2025-09-07.17-03-42
+    1.1.2-alpha.beta.gamma.2+2025-09-07.17-03-42.0000 < 1.1.2-alpha.beta.gamma.10+2025-09-07.16-23-57.0001
 ```
 
 #### Example 2
 
 ```
-please enter the first version identifier --> 1.1.2-alpha1+2025-09-07.16-23-57
-please enter the second version identifier -> 1.1.2-alpha2+2025-09-07.17-03-42
-the internal representation of the first version identifier is:
+please enter the first version identifier --> 1.1.2-alpha.beta.gamma.2+2025-09-07.16-23-57.0001
+please enter the second version identifier -> 1.1.2-alpha.beta.gamma.2+2025-09-07.17-03-42.0000
+the term representing the first version identifier is:
 { toVersionCore := { major := 1, minor := 1, patch := 2 },
-  preRelease := some [Sum.inl "alpha1"],
-  build := some [Sum.inl "2025-09-07", Sum.inl "16-23-57"] }
-the internal representation of the second version identifier is:
+  preRelease := some [PreRelIdent.alphanumIdent "alpha",
+                 PreRelIdent.alphanumIdent "beta",
+                 PreRelIdent.alphanumIdent "gamma",
+                 PreRelIdent.numIdent "2"],
+  build := some [BuildIdent.alphanumIdent "2025-09-07", BuildIdent.alphanumIdent "16-23-57", BuildIdent.digits "0001"] }
+the term representing the second version identifier is:
 { toVersionCore := { major := 1, minor := 1, patch := 2 },
-  preRelease := some [Sum.inl "alpha2"],
-  build := some [Sum.inl "2025-09-07", Sum.inl "17-03-42"] }
+  preRelease := some [PreRelIdent.alphanumIdent "alpha",
+                 PreRelIdent.alphanumIdent "beta",
+                 PreRelIdent.alphanumIdent "gamma",
+                 PreRelIdent.numIdent "2"],
+  build := some [BuildIdent.alphanumIdent "2025-09-07", BuildIdent.alphanumIdent "17-03-42", BuildIdent.digits "0000"] }
 for the precedence of the first and second version, the following is true:
-    1.1.2-alpha1+2025-09-07.16-23-57 < 1.1.2-alpha2+2025-09-07.17-03-42
+  ¬ 1.1.2-alpha.beta.gamma.2+2025-09-07.16-23-57.0001 < 1.1.2-alpha.beta.gamma.2+2025-09-07.17-03-42.0000
 ```
 
 ## How it is implemented
@@ -83,21 +102,35 @@ results in
 ```
 ParserResult.success
   { toVersionCore := { major := 1, minor := 0, patch := 1 },
-    preRelease := some [Sum.inl "alpha", Sum.inr "0", Sum.inr "1023", Sum.inl "xyz"],
+    preRelease := some [PreRelIdent.alphanumIdent "alpha",
+                   PreRelIdent.numIdent "0",
+                   PreRelIdent.numIdent "1023",
+                   PreRelIdent.alphanumIdent "xyz"],
     build := none }
 ```
 
-### Incorrect Version Identifiers
+#### First Example of an Incorrect Version Identifier
 
 ```
 #eval Version.parse "1.0.1.1-alpha.0.1023.xyz"
 ```
-
 returns
 ```
 ParserResult.failure
   { message := "exactly three numbers - separated by '.' - must be provided, not one more, not one less",
     position := 0 }
+```
+
+#### Second Example of an Incorrect Version Identifier
+
+```
+#eval Version.parse "1.0.1-alpha.00.1023.xyz"
+```
+leads to
+```
+ParserResult.failure
+  { message := "neither alphanumeric nor numeric identifier found because \n1. alphanumeric identifier must contain a non-digit character in position 14\n2. numeric identifiers must not have leading zeros in position 12",
+    position := 14 }
 ```
 
 ### Rendering
@@ -121,8 +154,10 @@ as output. `toString` is the inverse operation of `parse`.
 ### Precedence 
 
 Semantic versioning defines precedence rules for version identifiers. 
-These are implemented by functions `lt` (less than) and `decLt` (decidable less than) that each type provides.
-This way, for terms t₁ and t₂ of the same type, it can be determined if t₁ < t₂ or ¬ t₁ < t₂ holds true.
+These are implemented by functions `lt` (less than) and `decLt` (decidable less than) provided by all types,
+where it is required.
+
+For terms t₁ and t₂ of the same type, it can this be determined if t₁ < t₂ or ¬ t₁ < t₂ holds true.
 In particular, as terms of type `Version`, two version identifiers can be compared with each other.
 
 The following propositions are all true:
