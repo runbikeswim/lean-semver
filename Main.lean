@@ -25,8 +25,20 @@ def main : IO Unit := do
     IO.println "the term representing the first version identifier is:"
     IO.println ((repr version_0).pretty 128 0)
 
+    IO.print "the public API related to the first version is "
+    if version_0.isStable then
+      IO.println "stable"
+    else
+      IO.println "*not* stable"
+
     IO.println "the term representing the second version identifier is:"
     IO.println ((repr version_1).pretty 128 0)
+
+    IO.print "the public API related to the second version is "
+    if version_1.isStable then
+      IO.println "stable"
+    else
+      IO.println "*not* stable"
 
     IO.println "for the precedence of the first and second version, the following is true:"
     if version_0 < version_1 then

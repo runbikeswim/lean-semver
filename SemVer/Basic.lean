@@ -424,10 +424,10 @@ end PreReleaseIdentifiers
 section VersionCores
 
 structure VersionCore where
-  major : Nat
-  minor : Nat
-  patch : Nat
-deriving DecidableEq, Repr
+  major : Nat := 1
+  minor : Nat := 0
+  patch : Nat := 0
+deriving DecidableEq, Repr, Inhabited
 
 namespace VersionCore
 
@@ -482,12 +482,9 @@ end VersionCores
 section Versions
 
 structure Version extends VersionCore where
-  preRelease  : Option DotSepPreRelIdents
-  build       : Option DotSepBuildIdents
-deriving Repr
-
-instance : Inhabited Version :=
-  ⟨{major := 1, minor := 0, patch := 0, preRelease := none, build := none}⟩
+  preRelease  : Option DotSepPreRelIdents := none
+  build       : Option DotSepBuildIdents := none
+deriving Repr, Inhabited
 
 namespace Version
 
@@ -581,6 +578,13 @@ def doParserResult (res : ParserResult Version) : IO Version := do
   match res with
   | .success version => return version
   | .failure e => throw (IO.userError e.toString)
+
+def isStable (v: Version) : Bool :=
+  match v with
+  | { major := 0, minor := _, patch := _, preRelease := _, build := _ }
+  | { major := _, minor := _, patch := _, preRelease := some _, build := _ }
+      => false
+  | _ => true
 
 end Version
 end Versions
