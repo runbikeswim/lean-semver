@@ -10,7 +10,7 @@ open Version
 def getVersion : IO Version := do
 
   let input ← (← IO.getStdin).getLine
-  let version ← doParserResult (parse input.trim)
+  let version ← (parse input.trim).toIO!
   return version
 
 def main : IO Unit := do

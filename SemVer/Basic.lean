@@ -24,9 +24,29 @@ section ParserResults
 inductive ParserResult (α : Type) where
   | success : α → ParserResult α
   | failure : ParserError → ParserResult α
+deriving Repr
 
 instance {α : Type} : Inhabited (ParserResult α) :=
   ⟨.failure {message := "unknown error", position := 2 ^ 16}⟩
+
+namespace ParserResult
+
+def to? {α : Type} (res : ParserResult α) : Option α :=
+  match res with
+  | .success s => some s
+  | .failure _ => none
+
+def to! {α : Type} [Inhabited α] (res : ParserResult α) : α :=
+  match res with
+  | .success s => s
+  | .failure e => panic s!"no parser result due to {e}"
+
+def toIO! {α : Type} (res : ParserResult α) : IO α := do
+  match res with
+  | .success s => return s
+  | .failure e => throw (IO.userError e.toString)
+
+end ParserResult
 
 end ParserResults
 
@@ -488,6 +508,22 @@ deriving Repr, Inhabited
 
 namespace Version
 
+def nextMajor (v : Version) : Version := {major := v.major + 1}
+
+def nextMinor (v : Version) : Version := {major := v.major, minor := v.minor + 1}
+
+def nextPatch (v : Version) : Version := {major := v.major, minor := v.minor, patch := v.patch + 1}
+
+def isStable (v: Version) : Bool :=
+  match v with
+  | { major := 0, minor := _, patch := _, preRelease := _, build := _ }
+  | { major := _, minor := _, patch := _, preRelease := some _, build := _ }
+      => false
+  | _ => true
+
+def charIsValid (c : Char ) : Bool :=
+  c.isAlphanum || c == '-' || c == '.' || c == '+'
+
 def toString (a : Version) : String :=
     match a.preRelease, a.build with
     | none, none => s!"{a.toVersionCore}"
@@ -574,17 +610,68 @@ def parse (str : String) : ParserResult Version :=
                     position := head.length + 1
                   }
 
-def doParserResult (res : ParserResult Version) : IO Version := do
-  match res with
-  | .success version => return version
-  | .failure e => throw (IO.userError e.toString)
+def nextPreRelease? (v : Version) (suffix : String) : Option Version :=
+  match parse s!"{v.toVersionCore}-{suffix}" with
+  | .success w =>
+    if v < w then
+      some w
+    else
+      none
+  | .failure _ => none
 
-def isStable (v: Version) : Bool :=
+def isPossibleStart : (Option Char) → Char → Bool
+  | none, d => d.isDigit
+  | some c, d => (!c.isDigit) && (d.isDigit)
+
+def isPossibleEnd (c: Char) : Bool := ! (charIsValid c)
+
+def setPreRelease? (v: Version) (suffix : String) : Option Version :=
   match v with
-  | { major := 0, minor := _, patch := _, preRelease := _, build := _ }
-  | { major := _, minor := _, patch := _, preRelease := some _, build := _ }
-      => false
-  | _ => true
+  | { toVersionCore := c, preRelease := _ , build := _ } =>
+    (parse s!"{c}-{suffix}").to?
+
+def setBuild? (v: Version) (suffix : String) : Option Version :=
+  match v with
+  | { toVersionCore := c, preRelease := none, build := _ } =>
+    (parse s!"{c}+{suffix}").to?
+  | { toVersionCore := c, preRelease := some p, build := _ } =>
+    (parse s!"{c}-{p}+{suffix}").to?
 
 end Version
+
+namespace VersionCore
+
+def addPreRelease? (c : VersionCore) (suffix : String) : Option Version :=
+  (Version.parse s!"{c}-{suffix}").to?
+
+end VersionCore
+
 end Versions
+
+section Extraction
+
+def cutOffPrefix (c : Option Char) (l: List Char) : List Char:=
+  match l with
+  | d::t =>
+    if (Version.isPossibleStart c) d then
+      l
+    else
+      cutOffPrefix d t
+  | .nil => []
+
+def cutOffSuffix (l: List Char) (r: List Char) : List Char :=
+  match l with
+  | c::t =>
+    if Version.isPossibleEnd c then
+      r.reverse
+    else
+      cutOffSuffix t (c::r)
+  | .nil => r.reverse
+
+def extractVersion? (text: String) : Option Version :=
+  let tail := cutOffPrefix none text.data
+  let middle := cutOffSuffix tail []
+
+  (Version.parse (String.mk middle)).to?
+
+end Extraction
