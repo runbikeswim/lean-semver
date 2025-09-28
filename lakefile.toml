@@ -2,6 +2,9 @@ name = "lean-semver"
 version = "0.7.0"
 defaultTargets = ["lean-semver"]
 
+[leanOptions]
+pp.unicode.fun = true # pretty-prints `fun a ↦ b`
+
 [[lean_lib]]
 name = "SemVer"
 

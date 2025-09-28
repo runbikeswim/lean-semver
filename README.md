@@ -23,7 +23,7 @@ as defined by Sematic Versioning.
 ## How to run it
 
 [Install Lean](https://lean-lang.org/install/), clone this repository and then execute
-```
+```bash
 lake exe lean-semver
 ```
 
@@ -41,7 +41,7 @@ The following two examples show the out put of program `lean-semver` and user in
 
 #### Example 1
 
-```
+```text
 please enter the first version identifier --> 1.1.2-alpha.beta.gamma.2+2025-09-07.17-03-42.0000
 please enter the second version identifier -> 1.1.2-alpha.beta.gamma.10+2025-09-07.16-23-57.0001
 the term representing the first version identifier is:
@@ -64,7 +64,7 @@ for the precedence of the first and second version, the following is true:
 
 #### Example 2
 
-```
+```text
 please enter the first version identifier --> 1.1.2-alpha.beta.gamma.2+2025-09-07.16-23-57.0001
 please enter the second version identifier -> 1.1.2-alpha.beta.gamma.2+2025-09-07.17-03-42.0000
 the term representing the first version identifier is:
@@ -95,11 +95,11 @@ respective type or, if this is not possible, returns an error.
 
 #### Correct Version Identifiers
 
-```
+```lean
 #eval Version.parse "1.0.1-alpha.0.1023.xyz"
 ```
 results in 
-```
+```text
 ParserResult.success
   { toVersionCore := { major := 1, minor := 0, patch := 1 },
     preRelease := some [PreRelIdent.alphanumIdent "alpha",
@@ -111,11 +111,11 @@ ParserResult.success
 
 #### First Example of an Incorrect Version Identifier
 
-```
+```lean
 #eval Version.parse "1.0.1.1-alpha.0.1023.xyz"
 ```
 returns
-```
+```text
 ParserResult.failure
   { message := "exactly three numbers - separated by '.' - must be provided, not one more, not one less",
     position := 0 }
@@ -123,11 +123,11 @@ ParserResult.failure
 
 #### Second Example of an Incorrect Version Identifier
 
-```
+```lean
 #eval Version.parse "1.0.1-alpha.00.1023.xyz"
 ```
 leads to
-```
+```text
 ParserResult.failure
   { message := "neither alphanumeric nor numeric identifier found because \n1. alphanumeric identifier must contain a non-digit character in position 14\n2. numeric identifiers must not have leading zeros in position 12",
     position := 14 }
@@ -138,18 +138,17 @@ ParserResult.failure
 Each of the types implements `toString`, which renders a term of this type to a string that follows the grammar.
 
 The following code
-```
-def test_to_string : IO Unit := do
-  let version ← Version.doParserResult (Version.parse "2.0.0-alpha2.1234+nightly-2025-09-06.1234")
-  IO.println version.toString
 
-#eval test_to_string
+```lean
+#eval (Version.parse "2.0.0-alpha2.1234+nightly-2025-09-06.1234").to!.toString
 ```
 results in 
+```text
+"2.0.0-alpha2.1234+nightly-2025-09-06.1234"
 ```
-2.0.0-alpha2.1234+nightly-2025-09-06.1234
-```
-as output. `toString` is the inverse operation of `parse`.
+as output. 
+
+`fun v: Version ↦ toString v` is the inverse operation of `fun s: String ↦ (Version.parse s).to!`, if the latter is restricted to strings that represent valid versions.
 
 ### Precedence 
 
@@ -162,5 +161,5 @@ In particular, as terms of type `Version`, two version identifiers can be compar
 
 The following propositions are all true:
 * `1.9.0 < 1.10.0`, since the minor version 9 is less than 10 (compared as numbers not as strings) 
-* `1.0.0-alpha.beta < 1.0.0-beta.11`, because the version cores are identical but the first pre-release is less than the second (as strings in lexicographical order)
-* `¬ 1.0.0+20130313144700 < 1.0.0+21AF26D3----117B344092BD`, because the core versions (first three numbers) as well as the pre-releases are (both empty) are identical and the build information has no effect on precedence
+* `1.0.0-alpha.beta < 1.0.0-beta.11`, because the version cores (first three numbers) are identical but the first pre-release is less than the second (as strings in lexicographical order)
+* `¬ 1.0.0+20130313144700 < 1.0.0+21AF26D3----117B344092BD`, because the core versions as well as the pre-releases are (both empty) are identical and the build information has no effect on precedence
