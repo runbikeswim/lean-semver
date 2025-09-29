@@ -623,8 +623,6 @@ def isPossibleStart : (Option Char) → Char → Bool
   | none, d => d.isDigit
   | some c, d => (!c.isDigit) && (d.isDigit)
 
-def isPossibleEnd (c: Char) : Bool := ! (charIsValid c)
-
 def setPreRelease? (v: Version) (suffix : String) : Option Version :=
   match v with
   | { toVersionCore := c, preRelease := _ , build := _ } =>
@@ -650,28 +648,28 @@ end Versions
 
 section Extraction
 
-def cutOffPrefix (c : Option Char) (l: List Char) : List Char:=
-  match l with
-  | d::t =>
-    if (Version.isPossibleStart c) d then
-      l
-    else
-      cutOffPrefix d t
-  | .nil => []
+def cutOffPrefix (ch : Option Char) (text: String) : String :=
 
-def cutOffSuffix (l: List Char) (r: List Char) : List Char :=
-  match l with
-  | c::t =>
-    if Version.isPossibleEnd c then
-      r.reverse
-    else
-      cutOffSuffix t (c::r)
-  | .nil => r.reverse
+  let rec helper : (Option Char) → (List Char) → (List Char)
+    | _, [] => []
+    | c, d::t =>
+      if (Version.isPossibleStart c) d then
+        d::t
+      else
+        helper d t
 
-def extractVersion? (text: String) : Option Version :=
-  let tail := cutOffPrefix none text.data
-  let middle := cutOffSuffix tail []
+  String.mk ((helper ch) text.data)
 
-  (Version.parse (String.mk middle)).to?
+def extractVersions (text: String) : List Version :=
+
+  let rec helper : List String → List Version
+    | [] => []
+    | text::tail =>
+      let withoutPrefix := cutOffPrefix none text
+      match Version.parse withoutPrefix with
+      | .success v => v::(helper tail)
+      | .failure _ => helper tail
+
+  helper (text.split (!Version.charIsValid ·))
 
 end Extraction
