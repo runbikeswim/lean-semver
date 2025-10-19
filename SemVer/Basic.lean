@@ -107,9 +107,28 @@ namespace NonEmptyList
 [`List.lt`](https://lean-lang.org/doc/api/Init/Data/List/Basic.html#List.lt)
 can be used directly for implementing the required behavior.
 -/
-def lt {α: Type} [LT α] (a b : NonEmptyList α) : Prop := a.val < b.val
+def lt {α: Type} [LT α] (a b : NonEmptyList α) : Prop := a.val.lt b.val
 
 instance (α : Type) [LT α] : LT (NonEmptyList α) := ⟨lt⟩
+
+/--
+The following theorem ensures that the canonical injection
+```
+fun {α : Type} (a : NonEmptyList α) => a.val
+```
+is strictly monotone under the respective less-then relations.
+Based on this, the theorem `List.lt_trans` can be _carried over_ from `List` to
+`NonEmptyList`.
+-/
+theorem inj_mono {α: Type} [LT α] (a b : NonEmptyList α) : a.lt b → a.val.lt b.val := by
+  intro h
+  unfold lt at h
+  exact h
+
+theorem inj_mono' {α: Type} [LT α] (a b : NonEmptyList α) : a < b → a.val < b.val := inj_mono a b
+
+theorem lt_trans {α: Type} [LT α] (a b c: NonEmptyList α) (h1 : a < b) (h2 : b < c) : a < c := by
+  sorry
 
 /--
 `decLt` is the decidable `<`-relation for non-empty lists.
