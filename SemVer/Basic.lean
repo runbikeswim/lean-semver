@@ -2,56 +2,97 @@
 Copyright (c) 2025 Stefan Kusterer. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 -/
+
 section ParserErrors
 
+/--
+A parser error is a structure that contains the error message and a number that
+is the position at which the interpretation of the input string was not
+possible anymore.
+-/
 structure ParserError where
   message : String
   position : Nat
-deriving Repr
+  input: Option String
+deriving Repr, BEq
 
 namespace ParserError
 
+/--
+Return a formatted string that contains the error message and position.
+-/
 def toString (e : ParserError) : String :=
-  s!"error in position {e.position}: {e.message}"
+  match e.input with
+  | some str => s!"error in position {e.position} of '{str}': {e.message}"
+  | none => s!"error in position {e.position}: {e.message}"
 
 instance : ToString ParserError := ⟨toString⟩
+
+instance : Inhabited ParserError := ⟨{message := "unknown error", position := 42, input := none}⟩
 
 end ParserError
 end ParserErrors
 
 section ParserResults
 
+/--
+A parser result holds either the value of the given type, if parsing was
+successful or a parser error in case of failure.
+-/
 inductive ParserResult (α : Type) where
   | success : α → ParserResult α
   | failure : ParserError → ParserResult α
-deriving Repr
+deriving Repr, BEq
 
-instance {α : Type} : Inhabited (ParserResult α) :=
-  ⟨.failure {message := "unknown error", position := 2 ^ 16}⟩
+/--
+Define a failure with "unknown error" as message an implausible position
+as default value for parser result.
+-/
+instance {α : Type} : Inhabited (ParserResult α) := ⟨.failure default⟩
 
 namespace ParserResult
 
+def isSuccess {α : Type} (res : ParserResult α) : Bool :=
+  match res with
+  | .success _ => true
+  | .failure _ => false
+
+/--
+`to?` converts a parser result into an optional value.
+-/
 def to? {α : Type} (res : ParserResult α) : Option α :=
   match res with
-  | .success s => some s
+  | .success s => s
   | .failure _ => none
 
+/--
+`to!` unwraps the value from a `.success` parser result and
+panics if a `.failure` is provided.
+-/
 def to! {α : Type} [Inhabited α] (res : ParserResult α) : α :=
   match res with
   | .success s => s
   | .failure e => panic s!"no parser result due to {e}"
 
+/--
+For convenience, `toIO!` converts the value from a `.success` parser result
+into an term of `IO α` and throws an error, if a `.failure` is provided.
+-/
 def toIO! {α : Type} (res : ParserResult α) : IO α := do
   match res with
   | .success s => return s
   | .failure e => throw (IO.userError e.toString)
 
 end ParserResult
-
 end ParserResults
 
 section NonEmptyLists
 
+/--
+Non-empty lists are used to ensure that the list-like identifiers
+`dot-separated pre-release identifiers` and `dot-separated build identifiers`
+are not empty.
+-/
 def NonEmptyList (α : Type) : Type := {l: List α // !l.isEmpty}
 
 instance (α : Type) [DecidableEq α] : DecidableEq (NonEmptyList α) :=
@@ -59,83 +100,131 @@ instance (α : Type) [DecidableEq α] : DecidableEq (NonEmptyList α) :=
 
 namespace NonEmptyList
 
-/-
-List.lt (https://leanprover-community.github.io/mathlib4_docs/Init/Data/List/Basic.html#List.lt)
-provides the implementation the is required to fulfill https://semver.org/#spec-item-11
+/--
+`lt` (less than) is the basis for implementing the precedence of versions as defined under
+[item #11 in semver.org](https://semver.org/#spec-item-11).
+
+[`List.lt`](https://lean-lang.org/doc/api/Init/Data/List/Basic.html#List.lt)
+can be used directly for implementing the required behavior.
 -/
 def lt {α: Type} [LT α] (a b : NonEmptyList α) : Prop := a.val < b.val
 
 instance (α : Type) [LT α] : LT (NonEmptyList α) := ⟨lt⟩
 
+/--
+`decLt` is the decidable `<`-relation for non-empty lists.
+-/
 def decLt {α: Type} [DecidableEq α] [LT α] [DecidableLT α] (a b : NonEmptyList α) :
   Decidable (a < b) := List.decidableLT a.val b.val
 
 instance (α : Type) [DecidableEq α] [LT α] [DecidableLT α] :
   DecidableLT (NonEmptyList α) := decLt
 
+/--
+Provide an implementation of `repr` so that `#eval` can be used on non-empty lists.
+-/
 def repr {α : Type} [Repr α] (a : NonEmptyList α) (n : Nat) : Std.Format := List.repr a.val n
 
 instance (α : Type) [Repr α] : Repr (NonEmptyList α) := ⟨repr⟩
 
+/--
+Render a non-empty list as string with its elements separated by ".".
+
+For instance,
+```lean
+#eval toDotSeparatedString (⟨[0, 1, 2, 3, 4], rfl⟩ : NonEmptyList Nat)
+```
+results in `"0.1.2.3.4"`.
+-/
 def toDotSeparatedString {α : Type} [ToString α] (a : NonEmptyList α) : String :=
   String.intercalate "." (a.val.map (fun a => ToString.toString a))
 
-def parse {α : Type} (str : String) (pos: Nat) (parseElement : String → Nat →  ParserResult α) (sep : Char) :
+/--
+Parse the given string and, if possible, return a result containing
+a non-empty list of terms of type α.
+-/
+def parse {α : Type} (str : String) (parseElement : String → ParserResult α) (sep : Char) :
   ParserResult (NonEmptyList α) :=
 
-  let rec helper (lstr : List String) (pos: Nat) (parseElement : String → Nat → ParserResult α) :
+  let rec helper (lstr : List String) (parseElement : String → ParserResult α) :
     ParserResult (List α) :=
     match lstr with
-    | chr::tail =>
-      match parseElement chr pos with
+    | str::tail =>
+      match parseElement str with
       | .success res =>
-        match helper tail (pos + chr.length +1) parseElement with
+        match helper tail parseElement with
         | .success lres => .success (res::lres)
-        | .failure e => .failure e
+        | .failure e =>
+          .failure {
+            message := e.message,
+            position := e.position + str.length + 1, -- 1 for sep
+            input := none
+          }
       | .failure e => .failure e
     | [] => .success []
 
-  match helper (str.split (· == sep)) pos parseElement with
+  match helper (str.split (· == sep)) parseElement with
   | .success res =>
     if h : !res.isEmpty then
       .success ⟨res, h⟩
-    else .failure {
-            message := s!"list of strings separated by '{sep}' must not be empty",
-            position := pos
-          }
-  | .failure e => .failure e
+    else
+      .failure default
+  | .failure e =>
+    .failure {
+      message := e.message,
+      position := e.position,
+      input := str
+    }
 
 end NonEmptyList
 end NonEmptyLists
 
 section NonEmptyStrings
-/-!
-Base type for the different kinds of identifiers to ensure "Identifiers MUST NOT be empty."
-(see 9. in https://semver.org/).
--/
 
+/--
+Non-empty strings are the _base type_ for the different kinds of identifiers.
+They ensure that the requirement "Identifiers MUST NOT be empty." that is stated as
+[item #9 in semver.org](https://semver.org/#spec-item-9) is fulfilled.
+-/
 def NonEmptyString : Type := { s : String // !s.isEmpty }
 
-deriving instance DecidableEq for NonEmptyString
-deriving instance ToString for NonEmptyString
-deriving instance Repr for NonEmptyString
+deriving instance DecidableEq, BEq, ToString, Repr for NonEmptyString
 
 namespace NonEmptyString
 
+/--
+`lt` is for comparing two non-empty strings as in
+```
+#check lt (⟨"abc", rfl⟩ : NonEmptyString) (⟨"bcd", rfl⟩ : NonEmptyString)
+```
+-/
 def lt (a b : NonEmptyString) : Prop := a.val < b.val
 
 instance : LT NonEmptyString := ⟨lt⟩
 
-instance decidableLT (a b : NonEmptyString) :
-  Decidable (a < b) := String.decidableLT a.val b.val
+/--
+`decLt` is the decidable `<`-relation for non-empty strings, which
+allows for comparing two non-empty strings as in
+```
+#eval decLt (⟨"abc", rfl⟩ : NonEmptyString) (⟨"bcd", rfl⟩ : NonEmptyString)
+```
+-/
+def decLt (a b : NonEmptyString) : Decidable (a < b) :=
+  String.decidableLT a.val b.val
 
-def parse (str : String) (pos : Nat) : ParserResult NonEmptyString :=
+instance decidableLT (a b : NonEmptyString) : Decidable (a < b) := decLt a b
+
+/--
+Parse a given string and return a result containing a non-empty string if possible.
+-/
+def parse (str : String) : ParserResult NonEmptyString :=
   if h: !str.isEmpty then
     .success ⟨str, h⟩
   else
     .failure {
       message := "string must not be empty",
-      position := pos : ParserError
+      position := 0,
+      input := str
     }
 
 end NonEmptyString
@@ -143,32 +232,61 @@ end NonEmptyStrings
 
 section Digits
 
-def NonEmptyString.containsOnlyDigits (s: NonEmptyString) : Bool × Nat:=
+/--
+Return `(true, s.length)` if the given non-empty string `s` only contains digits and
+`(false, p)`otherwise, if `s` contains a non-digit character in position `p`.
+-/
+def NonEmptyString.containsOnlyDigits (s: NonEmptyString) : Bool × Nat :=
+
   let rec helper : (List Char) → Nat → Bool × Nat
     | chr::tail, pos => if chr.isDigit then helper tail (pos + 1) else (false, pos)
     | _, pos => (true, pos)
 
   helper s.val.data 0
 
+/--
+Digits are non-empty strings that only contain digits as characters as in
+```
+#eval (⟨⟨ "01234", rfl⟩, rfl⟩ : Digits)
+```
+-/
 def Digits : Type := { s : NonEmptyString // s.containsOnlyDigits.fst = true }
 
-/-
-Beware: = and DecidableEq are based on String
-but < and decidableLT on Nat - see lt below
--/
-deriving instance DecidableEq for Digits
-deriving instance ToString for Digits
-deriving instance Repr for Digits
+deriving instance DecidableEq, BEq, ToString, Repr for Digits
 
 namespace Digits
 
+/--
+Convert string of digits `Nat`.
+-/
 def toNat (d : Digits) : Nat := d.val.val.toNat!
 
-/- compare as numbers -/
-def lt (a b : Digits) : Prop := a.toNat < b.toNat
+/--
+Less-then for digits, which is based on `Nat` (and not `String`)
+as defined in https://semver.org/ under 4.1: Identifiers
+consisting of only digits are compared numerically.
+-/
+def lt (a b : Digits) := a.toNat < b.toNat
 
 instance : LT Digits := ⟨lt⟩
 
+/--
+Decidable less-then for digits, which allows for evaluations like
+the ones at the end of of this example
+```
+def nes0 : NonEmptyString := ⟨"01234", rfl⟩
+def nes1 : NonEmptyString := ⟨"002234", rfl⟩
+
+#eval nes0 < nes1 -- false
+#eval nes1 < nes0 -- true
+
+def d0 : Digits := ⟨nes0, rfl⟩
+def d1 : Digits := ⟨nes1, rfl⟩
+
+#eval d0 < d1 -- true
+#eval d1 < d0 -- false
+```
+-/
 instance decidableLT (a b : Digits) : Decidable (a < b) :=
   if h: a.toNat < b.toNat then
     have g : lt a b := by unfold lt; exact h
@@ -177,15 +295,25 @@ instance decidableLT (a b : Digits) : Decidable (a < b) :=
     have g : ¬ lt a b := by unfold lt; exact h
     isFalse g
 
-def parse (str : String) (pos : Nat) : ParserResult Digits :=
-  match NonEmptyString.parse str pos with
+/--
+Parse the given string and return a `ParserResult` containing
+term of type `Digits` if possible.
+
+Example:
+```
+#eval parse "001234" 0 -- ParserResult.success "001234"
+```
+-/
+def parse (str : String) : ParserResult Digits :=
+  match NonEmptyString.parse str with
   | .success b =>
     let c := b.containsOnlyDigits
     match g : c.fst with
     | true => .success ⟨b,g⟩
     | false => .failure {
         message := "digits expected, but non-digit character found",
-        position := pos + c.snd : ParserError
+        position := c.snd,
+        input := str
       }
   | .failure e => .failure e
 
@@ -194,6 +322,11 @@ end Digits
 
 section NumericIdentifiers
 
+/--
+Detect if a given term of type `Digits` has leading zeros.
+https://semver.org/ forbids leading zeros for both, numbers
+in the version _core_ and numeric identifiers.
+-/
 def Digits.hasNoLeadingZeros (d: Digits) : Bool × Nat :=
   let helper : (List Char) → Nat → Bool × Nat
   | [], pos => (true, pos)
@@ -202,32 +335,55 @@ def Digits.hasNoLeadingZeros (d: Digits) : Bool × Nat :=
 
   helper d.val.val.data 0
 
+/--
+Numeric identifiers are sequences of digits without leading
+zeros.
+
+Examples: Strings `"1234"` and `"0"` are valid numeric identifiers
+while `"01"` is not.
+-/
 def NumIdent : Type := { d: Digits // d.hasNoLeadingZeros.fst}
 
-deriving instance DecidableEq for NumIdent
-deriving instance ToString for NumIdent
-deriving instance Repr for NumIdent
+deriving instance DecidableEq, BEq, ToString, Repr for NumIdent
 
 namespace NumIdent
 
+/--
+Convert a numeric identifier to a natural number.
+-/
 def toNat (n : NumIdent) : Nat := n.val.toNat
 
-def lt (a b : NumIdent) : Prop := a.toNat < b.toNat
+/--
+Less-then for numerical identifiers, which is based
+on their value as natural number.
 
+TODO: Explain
+```
+def a : NumIdent := ⟨⟨⟨"13", rfl⟩, rfl⟩, rfl⟩
+def b : NumIdent := ⟨⟨⟨"123", rfl⟩, rfl⟩, rfl⟩
+#eval a < b
+#eval a.val < b.val
+#eval b.val.val < a.val.val
+```
+-/
+def lt (a b : NumIdent) : Prop := a.toNat < b.toNat
 instance : LT NumIdent := ⟨lt⟩
 
 instance decidableLT (a b : NumIdent) : Decidable (a < b) :=
   Digits.decidableLT a.val b.val
 
-def parse (str : String) (pos : Nat) : ParserResult NumIdent  :=
-  match Digits.parse str pos with
+
+
+def parse (str : String) : ParserResult NumIdent  :=
+  match Digits.parse str with
   | .success dig =>
     let lz := dig.hasNoLeadingZeros
     match g : lz.fst with
     | true => .success ⟨dig,g⟩
     | false => .failure {
         message := "numeric identifiers must not have leading zeros",
-        position := pos + lz.snd : ParserError
+        position := lz.snd,
+        input := str
       }
   | .failure e => .failure e
 
@@ -235,7 +391,8 @@ end NumIdent
 end NumericIdentifiers
 
 section Identifiers
-/-!
+
+/--
 Fundamental base type for the different kinds of identifiers to ensure
 "Identifiers MUST comprise only ASCII alphanumerics and hyphens [0-9A-Za-z-]."
 (see 9. in https://semver.org/).
@@ -250,9 +407,7 @@ def NonEmptyString.isIdent (s: NonEmptyString) : Bool × Nat :=
 
 def Ident : Type := { s: NonEmptyString // s.isIdent.fst }
 
-deriving instance DecidableEq for Ident
-deriving instance ToString for Ident
-deriving instance Repr for Ident
+deriving instance DecidableEq, BEq, ToString, Repr for Ident
 
 namespace Ident
 
@@ -261,10 +416,10 @@ def lt (a b : Ident) : Prop := a.val < b.val
 instance : LT Ident := ⟨lt⟩
 
 instance decidableLT (a b : Ident) : Decidable (a < b) :=
-  NonEmptyString.decidableLT a.val b.val
+  NonEmptyString.decLt a.val b.val
 
-def parse (str : String) (pos : Nat) : ParserResult Ident :=
-  match NonEmptyString.parse str pos with
+def parse (str : String) : ParserResult Ident :=
+  match NonEmptyString.parse str  with
   | .failure e => .failure e
   | .success nes =>
     let isi := nes.isIdent
@@ -272,7 +427,8 @@ def parse (str : String) (pos : Nat) : ParserResult Ident :=
     | true => .success ⟨nes, g⟩
     | false => .failure {
         message := "character is not in [0-9A-Za-z-]",
-        position := pos + isi.snd : ParserError
+        position := isi.snd,
+        input := str
       }
 
 end Ident
@@ -288,11 +444,10 @@ def Ident.hasNonDigit (i: Ident) : Bool × Nat:=
 
 def AlphanumIdent : Type := { i : Ident // i.hasNonDigit.fst }
 
-deriving instance ToString for AlphanumIdent
-deriving instance Repr for AlphanumIdent
-
 instance : DecidableEq AlphanumIdent :=
     Subtype.instDecidableEq
+
+deriving instance BEq, ToString, Repr for AlphanumIdent
 
 namespace AlphanumIdent
 
@@ -303,15 +458,16 @@ instance : LT AlphanumIdent := ⟨lt⟩
 instance decidableLT (a b : AlphanumIdent) : Decidable (a < b) :=
   Ident.decidableLT a.val b.val
 
-def parse (str : String) (pos : Nat) : ParserResult AlphanumIdent :=
-  match Ident.parse str pos with
+def parse (str : String) : ParserResult AlphanumIdent :=
+  match Ident.parse str with
   | .success id =>
     let cnd := id.hasNonDigit
     match g : cnd.fst with
     | true => .success ⟨id,g⟩
     | false => .failure {
         message := "alphanumeric identifier must contain a non-digit character",
-        position := pos + cnd.snd
+        position := cnd.snd,
+        input := str
       }
   | .failure e => .failure e
 
@@ -324,33 +480,34 @@ inductive BuildIdent where
   | alphanumIdent (val : AlphanumIdent) : BuildIdent
   | digits (val : Digits) : BuildIdent
 
-deriving instance Repr for BuildIdent
-deriving instance DecidableEq for BuildIdent
+deriving instance DecidableEq, BEq, Repr for BuildIdent
 
 namespace BuildIdent
 
 def toString : BuildIdent → String
   | alphanumIdent val => (ToString.toString val)
-  | .digits val => (ToString.toString val)
+  | digits val => (ToString.toString val)
 
 instance : ToString BuildIdent := ⟨toString⟩
 
-def parse (str : String) (pos : Nat) : ParserResult BuildIdent :=
-  match AlphanumIdent.parse str pos with
+def parse (str : String) : ParserResult BuildIdent :=
+  match AlphanumIdent.parse str with
   | .success ani => .success (alphanumIdent ani)
   | .failure e1 =>
-    match Digits.parse str pos with
-    | .success dig => .success (.digits dig)
+    match Digits.parse str with
+    | .success dig => .success (digits dig)
     | .failure e2 => .failure {
-        message := s!"neither alphanumeric identifier nor digits found because\n1. {e1.message} in position {e1.position}\n2. {e2.message} in position {e2.position}"
-        position := Nat.max e1.position e2.position
+        message := s!"neither alphanumeric identifier nor digits found because\n1. {e1.message}\n2. {e2.message}"
+        position := Nat.max e1.position e2.position,
+        input := str
       }
 
 end BuildIdent
 
 def DotSepBuildIdents : Type := NonEmptyList BuildIdent
 
-deriving instance Repr for DotSepBuildIdents
+deriving instance DecidableEq, BEq, Repr for DotSepBuildIdents
+instance : Inhabited DotSepBuildIdents := ⟨[(BuildIdent.digits ⟨⟨"0", rfl⟩, rfl⟩)], rfl⟩
 
 namespace DotSepBuildIdents
 
@@ -358,8 +515,8 @@ def toString : DotSepBuildIdents → String := NonEmptyList.toDotSeparatedString
 
 instance : ToString DotSepBuildIdents := ⟨toString⟩
 
-def parse (str : String) (pos : Nat) : ParserResult DotSepBuildIdents :=
-  NonEmptyList.parse str pos BuildIdent.parse '.'
+def parse (str : String) : ParserResult DotSepBuildIdents :=
+  NonEmptyList.parse str BuildIdent.parse '.'
 
 end DotSepBuildIdents
 
@@ -371,8 +528,7 @@ inductive PreRelIdent where
   | alphanumIdent (val : AlphanumIdent) : PreRelIdent
   | numIdent (val : NumIdent) : PreRelIdent
 
-deriving instance Repr for PreRelIdent
-deriving instance DecidableEq for PreRelIdent
+deriving instance DecidableEq, BEq, Repr for PreRelIdent
 
 namespace PreRelIdent
 
@@ -389,7 +545,7 @@ def decLt (a b : PreRelIdent) : Decidable (a < b) :=
     match ha: a, hb: b with
   | alphanumIdent s, alphanumIdent t
   | numIdent s, numIdent t =>
-      if h: s < t then isTrue  h else isFalse h
+      if h: s < t then isTrue h else isFalse h
   | alphanumIdent _, numIdent _ =>
       have h : ¬ a.lt b := by unfold lt; simp [ha, hb]
       isFalse (by rw [ha, hb] at h; exact h)
@@ -405,20 +561,24 @@ def toString : PreRelIdent → String
 
 instance : ToString PreRelIdent := ⟨toString⟩
 
-def parse (str : String) (pos : Nat) : ParserResult PreRelIdent  :=
-  match AlphanumIdent.parse str pos with
+def parse (str : String) : ParserResult PreRelIdent  :=
+  match AlphanumIdent.parse str  with
   | .success val => .success (alphanumIdent val)
   | .failure e1 =>
-    match NumIdent.parse str pos with
+    match NumIdent.parse str with
     | .success val => .success (numIdent val)
     | .failure e2 => .failure {
-        message := s!"neither alphanumeric nor numeric identifier found because \n1. {e1.message} in position {e1.position}\n2. {e2.message} in position {e2.position}"
+        message := s!"neither alphanumeric nor numeric identifier found because \n1. {e1.message}\n2. {e2.message}"
         position := Nat.max e1.position e2.position
+        input := str
       }
 
 end PreRelIdent
 
 def DotSepPreRelIdents : Type := NonEmptyList PreRelIdent
+
+deriving instance DecidableEq, BEq, Repr for DotSepPreRelIdents
+instance : Inhabited DotSepPreRelIdents := ⟨[(PreRelIdent.numIdent ⟨⟨⟨"0", rfl⟩, rfl⟩, rfl⟩)], rfl⟩
 
 namespace DotSepPreRelIdents
 
@@ -434,8 +594,8 @@ def toString : DotSepPreRelIdents → String := NonEmptyList.toDotSeparatedStrin
 
 instance : ToString DotSepPreRelIdents := ⟨toString⟩
 
-def parse (a : String) (pos : Nat) : ParserResult DotSepPreRelIdents  :=
-  NonEmptyList.parse a pos PreRelIdent.parse '.'
+def parse (str : String) : ParserResult DotSepPreRelIdents  :=
+  NonEmptyList.parse str PreRelIdent.parse '.'
 
 end DotSepPreRelIdents
 
@@ -447,7 +607,7 @@ structure VersionCore where
   major : Nat := 1
   minor : Nat := 0
   patch : Nat := 0
-deriving DecidableEq, Repr, Inhabited
+deriving DecidableEq, BEq, Repr, Inhabited
 
 namespace VersionCore
 
@@ -457,7 +617,7 @@ instance : ToString VersionCore := ⟨toString⟩
 
 def toList (v : VersionCore) : List Nat := [v.major, v.minor, v.patch]
 
-def fromList (l : List Nat) (h : l.length = 3) : VersionCore :=
+def fromList (l : List Nat) (h : l.length == 3) : VersionCore :=
   match l with
   | [m,n,p] => {major := m, minor := n, patch := p}
 
@@ -470,31 +630,18 @@ def decLt (v w : VersionCore) : Decidable (v < w) := v.toList.decidableLT w.toLi
 instance : DecidableLT VersionCore := decLt
 
 def parse (str : String) : ParserResult VersionCore  :=
-
-  let rec helper : (List String) → Nat → ParserResult (List Nat)
-    | [], _ => .success []
-    | chr::tail, pos =>
-      match chr.toNat? with
-      | some num =>
-        match helper tail (pos + chr.length + 1) with
-        | .success lnum => .success (num::lnum)
-        | .failure e => .failure e
-      | none =>
+  match NonEmptyList.parse str NumIdent.parse '.' with
+  | .success l =>
+      let nums := l.val.map NumIdent.toNat
+      if h : nums.length == 3 then
+        .success (fromList nums h)
+      else
         .failure {
-          message := "must be natural number",
-          position := pos
+          message := "exactly three numbers - separated by '.' - must be provided, not one more, not one less",
+          position := 0,
+          input := str
         }
-
-  match helper (str.split (· == '.')) 0 with
   | .failure e => .failure e
-  | .success vcr =>
-    if h : vcr.length = 3 then
-      .success (fromList vcr h)
-    else
-      .failure {
-        message := "exactly three numbers - separated by '.' - must be provided, not one more, not one less",
-        position := 0
-      }
 
 end VersionCore
 end VersionCores
@@ -504,25 +651,9 @@ section Versions
 structure Version extends VersionCore where
   preRelease  : Option DotSepPreRelIdents := none
   build       : Option DotSepBuildIdents := none
-deriving Repr, Inhabited
+deriving DecidableEq, BEq, Repr, Inhabited
 
 namespace Version
-
-def nextMajor (v : Version) : Version := {major := v.major + 1}
-
-def nextMinor (v : Version) : Version := {major := v.major, minor := v.minor + 1}
-
-def nextPatch (v : Version) : Version := {major := v.major, minor := v.minor, patch := v.patch + 1}
-
-def isStable (v: Version) : Bool :=
-  match v with
-  | { major := 0, minor := _, patch := _, preRelease := _, build := _ }
-  | { major := _, minor := _, patch := _, preRelease := some _, build := _ }
-      => false
-  | _ => true
-
-def charIsValid (c : Char ) : Bool :=
-  c.isAlphanum || c == '-' || c == '.' || c == '+'
 
 def toString (a : Version) : String :=
     match a.preRelease, a.build with
@@ -574,12 +705,17 @@ def parseCorePreRel (str : String) :
     match core_res with
     | .failure e => .failure e
     | .success core =>
-      if pre_rel_str == "" then
+      if pre_rel_str.isEmpty then
         .success (core, none)
       else
-        match DotSepPreRelIdents.parse pre_rel_str (core_str.length + 1) with
-        | .success pre_rel => .success (core, some pre_rel)
-        | .failure e => .failure e
+        match DotSepPreRelIdents.parse pre_rel_str with
+        | .success pre_rel => .success (core, pre_rel)
+        | .failure e =>
+          .failure {
+            message := e.message,
+            position := e.position + core_str.length + 1
+            input := str
+          }
 
 def parse (str : String) : ParserResult Version :=
   match str.split (· == '+') with
@@ -597,43 +733,60 @@ def parse (str : String) : ParserResult Version :=
     match parseCorePreRel core_pre_rel_str with
     | .failure e => .failure e
     | .success core_pre_rel_res =>
-      match DotSepBuildIdents.parse build_str (core_pre_rel_str.length + 1) with
-      | .failure e => .failure e
+      match DotSepBuildIdents.parse build_str with
       | .success build_res =>
           .success {
             toVersionCore := core_pre_rel_res.fst,
             preRelease := core_pre_rel_res.snd,
-            build := some build_res
+            build := build_res
           }
-  | head::_ => .failure  {
-                    message := "versions cannot contain more than one plus-sign",
-                    position := head.length + 1
-                  }
+      | .failure e =>
+        .failure {
+          message := e.message,
+          position := e.position + core_pre_rel_str.length + 1,
+          input := str
+        }
+  | head1::(head2::_) =>
+    .failure  {
+      message := "versions cannot contain more than one plus-sign",
+      position := head1.length + head2.length + 1,
+      input := str
+    }
 
-def nextPreRelease? (v : Version) (suffix : String) : Option Version :=
-  match parse s!"{v.toVersionCore}-{suffix}" with
-  | .success w =>
-    if v < w then
-      some w
-    else
-      none
+def isStable (v: Version) : Bool :=
+  match v with
+  | { major := 0, minor := _, patch := _, preRelease := _, build := _ }
+  | { major := _, minor := _, patch := _, preRelease := some _, build := _ }
+      => false
+  | _ => true
+
+def nextMajor (v : Version) : Version := {major := v.major + 1}
+def nextMinor (v : Version) : Version := {major := v.major, minor := v.minor + 1}
+def nextPatch (v : Version) : Version := {major := v.major, minor := v.minor, patch := v.patch + 1}
+
+def subsequentPreRelease? (v : Version) (str : String) : Option Version :=
+  match parse s!"{v.toVersionCore}-{str}" with
+  | .success w => if v < w then w else none
   | .failure _ => none
+
+def setPreRelease? (v: Version) (str : String) : Option Version :=
+  match v with
+  | { toVersionCore := c, preRelease := _ , build := _ } =>
+    (parse s!"{c}-{str}").to?
+
+def setBuild? (v: Version) (str : String) : Option Version :=
+  match v with
+  | { toVersionCore := c, preRelease := none, build := _ } =>
+    (parse s!"{c}+{str}").to?
+  | { toVersionCore := c, preRelease := some p, build := _ } =>
+    (parse s!"{c}-{p}+{str}").to?
 
 def isPossibleStart : (Option Char) → Char → Bool
   | none, d => d.isDigit
   | some c, d => (!c.isDigit) && (d.isDigit)
 
-def setPreRelease? (v: Version) (suffix : String) : Option Version :=
-  match v with
-  | { toVersionCore := c, preRelease := _ , build := _ } =>
-    (parse s!"{c}-{suffix}").to?
-
-def setBuild? (v: Version) (suffix : String) : Option Version :=
-  match v with
-  | { toVersionCore := c, preRelease := none, build := _ } =>
-    (parse s!"{c}+{suffix}").to?
-  | { toVersionCore := c, preRelease := some p, build := _ } =>
-    (parse s!"{c}-{p}+{suffix}").to?
+def charIsValid (c : Char ) : Bool :=
+  c.isAlphanum || c == '-' || c == '.' || c == '+'
 
 end Version
 
@@ -648,7 +801,7 @@ end Versions
 
 section Extraction
 
-def cutOffPrefix (ch : Option Char) (text: String) : String :=
+def cutOffPrefix (ch : Option Char) (str: String) : String :=
 
   let rec helper : (Option Char) → (List Char) → (List Char)
     | _, [] => []
@@ -658,9 +811,9 @@ def cutOffPrefix (ch : Option Char) (text: String) : String :=
       else
         helper d t
 
-  String.mk ((helper ch) text.data)
+  String.mk ((helper ch) str.data)
 
-def extractVersions (text: String) : List Version :=
+def extractVersions (str: String) : List Version :=
 
   let rec helper : List String → List Version
     | [] => []
@@ -670,6 +823,6 @@ def extractVersions (text: String) : List Version :=
       | .success v => v::(helper tail)
       | .failure _ => helper tail
 
-  helper (text.split (!Version.charIsValid ·))
+  helper (str.split (!Version.charIsValid ·))
 
 end Extraction

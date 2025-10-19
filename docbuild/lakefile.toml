@@ -1,0 +1,17 @@
+name = "docbuild"
+reservoir = false
+version = "0.1.0"
+packagesDir = "../.lake/packages"
+
+[[require]]
+name = "lean-semver"
+path = "../"
+
+[[require]]
+scope = "leanprover"
+name = "doc-gen4"
+rev = "v4.23.0"
+
+# run via 
+# cd docbuild
+# DOCGEN_SRC="github" lake build SemVer:docs

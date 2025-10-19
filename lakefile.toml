@@ -1,12 +1,16 @@
 name = "lean-semver"
 version = "0.7.0"
-defaultTargets = ["lean-semver"]
+defaultTargets = ["lean-semver", "test"]
 
 [leanOptions]
 pp.unicode.fun = true # pretty-prints `fun a ↦ b`
 
 [[lean_lib]]
 name = "SemVer"
+
+[[lean_exe]]
+name = "tests"
+root = "Test"
 
 [[lean_exe]]
 name = "lean-semver"
