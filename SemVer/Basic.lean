@@ -118,7 +118,7 @@ fun {α : Type} (a : NonEmptyList α) => a.val
 ```
 is strictly monotone under the respective less-then relations.
 -/
-theorem inj_mono {α: Type} [LT α] (a b : NonEmptyList α) : a < b ↔ a.val < b.val := by
+theorem inj_incr {α: Type} [LT α] (a b : NonEmptyList α) : a < b ↔ a.val < b.val := by
   constructor
   intro h
   simp at h
@@ -128,18 +128,18 @@ theorem inj_mono {α: Type} [LT α] (a b : NonEmptyList α) : a < b ↔ a.val < 
   exact h
 
 /--
-Based on `inj_mono`, the theorem `List.lt_trans` can be _carried over_ to `NonEmptyList`.
+Based on the above, the theorem `List.lt_trans` can be _carried over_ to `NonEmptyList`.
 -/
 theorem lt_trans {α: Type} [LT α]
   [i1 : Trans (· < · : α → α → Prop) (· < ·) (· < ·)]
   {a b c: NonEmptyList α} (h1 : a < b) (h2 : b < c) : a < c := by
-  rw [inj_mono]
-  rw [inj_mono] at h1 h2
+  rw [inj_incr]
+  rw [inj_incr] at h1 h2
   apply List.lt_trans h1 h2
 
-instance [LT α] [Trans (· < · : α → α → Prop) (· < ·) (· < ·)] :
+instance {α: Type} [LT α] [Trans (· < · : α → α → Prop) (· < ·) (· < ·)] :
     Trans (· < · : NonEmptyList α → NonEmptyList α → Prop) (· < ·) (· < ·) where
-  trans h₁ h₂ := lt_trans h₁ h₂
+  trans a b := lt_trans a b
 
 /--
 `decLt` is the decidable `<`-relation for non-empty lists.
@@ -232,6 +232,23 @@ def lt (a b : NonEmptyString) : Prop := a.val < b.val
 
 instance : LT NonEmptyString := ⟨lt⟩
 
+theorem inj_incr (a b : NonEmptyString) : a < b ↔ a.val < b.val := by
+  constructor
+  intro h
+  simp at h
+  exact h
+  intro h
+  simp at h
+  exact h
+
+theorem lt_trans {a b c: NonEmptyString} (h1 : a < b) (h2 : b < c) : a < c := by
+  rw [inj_incr]
+  rw [inj_incr] at h1 h2
+  exact String.lt_trans h1 h2
+
+instance : Trans (· < · : NonEmptyString → NonEmptyString → Prop) (· < ·) (· < ·) where
+  trans a b := lt_trans a b
+
 /--
 `decLt` is the decidable `<`-relation for non-empty strings, which
 allows for comparing two non-empty strings as in
@@ -289,7 +306,11 @@ namespace Digits
 /--
 Convert string of digits `Nat`.
 -/
-def toNat (d : Digits) : Nat := d.val.val.toNat!
+def toNat (d : Digits) : Nat :=
+  let s := d.val.val
+  match s.toNat? with
+    | some n => n
+    | none => panic! "unexpected error"
 
 /--
 Less-then for digits, which is based on `Nat` (and not `String`)
@@ -299,6 +320,14 @@ consisting of only digits are compared numerically.
 def lt (a b : Digits) := a.toNat < b.toNat
 
 instance : LT Digits := ⟨lt⟩
+
+theorem lt_trans {a b c: Digits} (h1 : a < b) (h2 : b < c) : a < c := by
+  simp only [instLT] at h1 h2; unfold lt at h1 h2
+  simp only [instLT]; unfold lt
+  exact Nat.lt_trans h1 h2
+
+instance : Trans (· < · : Digits → Digits → Prop) (· < ·) (· < ·) where
+  trans a b := lt_trans a b
 
 /--
 Decidable less-then for digits, which allows for evaluations like
@@ -324,6 +353,20 @@ instance decidableLT (a b : Digits) : Decidable (a < b) :=
   else
     have g : ¬ lt a b := by unfold lt; exact h
     isFalse g
+
+/-
+def a : Digits := ⟨⟨"02", rfl⟩, rfl⟩
+def b : Digits := ⟨⟨"1", rfl⟩, rfl⟩
+
+#eval a.val < b.val
+#eval b < a
+-/
+theorem inj_not_incr : ∃ a b : Digits, a.val < b.val ∧ b < a := by
+  let a : Digits := ⟨⟨"02", rfl⟩, rfl⟩
+  let b : Digits := ⟨⟨"1", rfl⟩, rfl⟩
+  have h1 : a.val < b.val := by simp [a,b]; decide
+  have na : 2 = a.toNat := by simp [a]; unfold toNat; simp; sorry
+  sorry
 
 /--
 Parse the given string and return a `ParserResult` containing
