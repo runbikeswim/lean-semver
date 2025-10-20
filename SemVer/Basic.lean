@@ -117,18 +117,29 @@ The following theorem ensures that the canonical injection
 fun {α : Type} (a : NonEmptyList α) => a.val
 ```
 is strictly monotone under the respective less-then relations.
-Based on this, the theorem `List.lt_trans` can be _carried over_ from `List` to
-`NonEmptyList`.
 -/
-theorem inj_mono {α: Type} [LT α] (a b : NonEmptyList α) : a.lt b → a.val.lt b.val := by
+theorem inj_mono {α: Type} [LT α] (a b : NonEmptyList α) : a < b ↔ a.val < b.val := by
+  constructor
   intro h
-  unfold lt at h
+  simp at h
+  exact h
+  intro h
+  simp at h
   exact h
 
-theorem inj_mono' {α: Type} [LT α] (a b : NonEmptyList α) : a < b → a.val < b.val := inj_mono a b
+/--
+Based on `inj_mono`, the theorem `List.lt_trans` can be _carried over_ to `NonEmptyList`.
+-/
+theorem lt_trans {α: Type} [LT α]
+  [i1 : Trans (· < · : α → α → Prop) (· < ·) (· < ·)]
+  {a b c: NonEmptyList α} (h1 : a < b) (h2 : b < c) : a < c := by
+  rw [inj_mono]
+  rw [inj_mono] at h1 h2
+  apply List.lt_trans h1 h2
 
-theorem lt_trans {α: Type} [LT α] (a b c: NonEmptyList α) (h1 : a < b) (h2 : b < c) : a < c := by
-  sorry
+instance [LT α] [Trans (· < · : α → α → Prop) (· < ·) (· < ·)] :
+    Trans (· < · : NonEmptyList α → NonEmptyList α → Prop) (· < ·) (· < ·) where
+  trans h₁ h₂ := lt_trans h₁ h₂
 
 /--
 `decLt` is the decidable `<`-relation for non-empty lists.
