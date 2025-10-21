@@ -280,68 +280,67 @@ section Digits
 
 namespace Char
 
-def toNatBase10 : Char → Option Nat
-  | '0' => some 0
-  | '1' => some 1
-  | '2' => some 2
-  | '3' => some 3
-  | '4' => some 4
-  | '5' => some 5
-  | '6' => some 6
-  | '7' => some 7
-  | '8' => some 8
-  | '9' => some 9
-  | _   => none
+def parseForNatBase10 : Char → ParserResult Nat
+  | '0' => .success 0
+  | '1' => .success 1
+  | '2' => .success 2
+  | '3' => .success 3
+  | '4' => .success 4
+  | '5' => .success 5
+  | '6' => .success 6
+  | '7' => .success 7
+  | '8' => .success 8
+  | '9' => .success 9
+  |  c  => .failure {message := s!"{c} is no digit", position := 0}
 
-def isDigitBase10 (chr : Char) : Bool :=
-  match chr.toNatBase10 with
-  | some _ => true
-  | none   => false
+def isDigitBase10 (chr : Char) : Bool := chr.parseForNatBase10.isSuccess
 
-def decIsDigitBase10 (chr : Char) : Decidable (isDigitBase10 chr) :=
-  match h: chr.toNatBase10 with
-  | some _ =>
-    have g : isDigitBase10 chr := by simp [isDigitBase10, h]
-    isTrue g
-  | none   =>
-    have g : ¬ isDigitBase10 chr := by simp [isDigitBase10, h]
-    isFalse g
+def decIsDigitBase10 (chr : Char) : Decidable (chr.isDigitBase10) :=
+  if h: chr.parseForNatBase10.isSuccess then
+    isTrue (by simp [isDigitBase10, h])
+  else
+    isFalse (by simp [isDigitBase10, h])
 
 end Char
 
 namespace String
 
-def toNatBase10 (str : String) : Option Nat :=
+def parseForNatBase10 (str : String) : ParserResult Nat :=
 
-  let rec listToNatBase10Helper : (List Char) → Nat → Option Nat
-  | [], acc => some acc
-  | c::cs, acc =>
-    match c.toNatBase10 with
-    | some n => listToNatBase10Helper cs (acc * 10 + n)
-    | none   => none
+  let rec listToNatBase10Helper : (List Char) → Nat → Nat → ParserResult Nat
+  | [], acc, _ => .success acc
+  | c::cs, acc, pos =>
+    match c.parseForNatBase10 with
+    | .success n => listToNatBase10Helper cs (acc * 10 + n) (pos + 1)
+    | .failure e => .failure {message := e.message, position := e.position}
 
   match str with
-  | "" => none
-  | s  => listToNatBase10Helper s.data 0
+  | "" =>
+    .failure {
+      message := "input must not be empty"
+      position := 0,
+      input := str
+    }
+  | s  =>
+    match listToNatBase10Helper s.data 0 0 with
+    | .success n => .success n
+    | .failure e => .failure {message := e.message, position := e.position, input := str}
 
-def hasOnlyDigitsBase10 (str : String) : Bool :=
-  match str.toNatBase10 with
-  | some _ => true
-  | none => false
+def hasOnlyDigitsBase10 (str : String) : Bool := str.parseForNatBase10.isSuccess
 
-theorem lemma_to_nat_base_10 {str : String} : str.toNatBase10 = none → str.hasOnlyDigitsBase10 = false := by
+theorem lemma_parse_for_nat_base10 {str : String} :
+  str.hasOnlyDigitsBase10 → str.parseForNatBase10.isSuccess := by
   intro h
-  unfold hasOnlyDigitsBase10
-  simp [h]
+  unfold hasOnlyDigitsBase10 at h
+  exact h
 
-def toNatBase10Guarded (str : String) (h : str.hasOnlyDigitsBase10): Nat :=
-
-  match g: str.toNatBase10 with
-  | some n => n
-  | none => by
-      have i : str.hasOnlyDigitsBase10 = false := by apply (lemma_to_nat_base_10 g)
-      rw [Bool.eq_false_iff] at i
-      contradiction
+def parseForNatBase10Guarded (str : String) (g : str.hasOnlyDigitsBase10): Nat :=
+  match h: str.parseForNatBase10 with
+  | .success n => n
+  | .failure _ => by
+      have i : str.parseForNatBase10.isSuccess := by apply lemma_parse_for_nat_base10 g
+      simp [ParserResult.isSuccess] at i
+      grind only
 
 end String
 
