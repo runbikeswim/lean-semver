@@ -13,7 +13,7 @@ possible anymore.
 structure ParserError where
   message : String
   position : Nat
-  input: Option String
+  input: Option String := none
 deriving Repr, BEq
 
 namespace ParserError
@@ -28,7 +28,7 @@ def toString (e : ParserError) : String :=
 
 instance : ToString ParserError := ⟨toString⟩
 
-instance : Inhabited ParserError := ⟨{message := "unknown error", position := 42, input := none}⟩
+instance : Inhabited ParserError := ⟨{message := "unknown error", position := 42}⟩
 
 end ParserError
 end ParserErrors
@@ -188,7 +188,6 @@ def parse {α : Type} (str : String) (parseElement : String → ParserResult α)
           .failure {
             message := e.message,
             position := e.position + str.length + 1, -- 1 for sep
-            input := none
           }
       | .failure e => .failure e
     | [] => .success []
@@ -278,6 +277,73 @@ end NonEmptyString
 end NonEmptyStrings
 
 section Digits
+
+namespace Char
+
+def toNatBase10 : Char → Option Nat
+  | '0' => some 0
+  | '1' => some 1
+  | '2' => some 2
+  | '3' => some 3
+  | '4' => some 4
+  | '5' => some 5
+  | '6' => some 6
+  | '7' => some 7
+  | '8' => some 8
+  | '9' => some 9
+  | _   => none
+
+def isDigitBase10 (chr : Char) : Bool :=
+  match chr.toNatBase10 with
+  | some _ => true
+  | none   => false
+
+def decIsDigitBase10 (chr : Char) : Decidable (isDigitBase10 chr) :=
+  match h: chr.toNatBase10 with
+  | some _ =>
+    have g : isDigitBase10 chr := by simp [isDigitBase10, h]
+    isTrue g
+  | none   =>
+    have g : ¬ isDigitBase10 chr := by simp [isDigitBase10, h]
+    isFalse g
+
+end Char
+
+namespace String
+
+def toNatBase10 (str : String) : Option Nat :=
+
+  let rec listToNatBase10Helper : (List Char) → Nat → Option Nat
+  | [], acc => some acc
+  | c::cs, acc =>
+    match c.toNatBase10 with
+    | some n => listToNatBase10Helper cs (acc * 10 + n)
+    | none   => none
+
+  match str with
+  | "" => none
+  | s  => listToNatBase10Helper s.data 0
+
+def hasOnlyDigitsBase10 (str : String) : Bool :=
+  match str.toNatBase10 with
+  | some _ => true
+  | none => false
+
+theorem lemma_to_nat_base_10 {str : String} : str.toNatBase10 = none → str.hasOnlyDigitsBase10 = false := by
+  intro h
+  unfold hasOnlyDigitsBase10
+  simp [h]
+
+def toNatBase10Guarded (str : String) (h : str.hasOnlyDigitsBase10): Nat :=
+
+  match g: str.toNatBase10 with
+  | some n => n
+  | none => by
+      have i : str.hasOnlyDigitsBase10 = false := by apply (lemma_to_nat_base_10 g)
+      rw [Bool.eq_false_iff] at i
+      contradiction
+
+end String
 
 /--
 Return `(true, s.length)` if the given non-empty string `s` only contains digits and
