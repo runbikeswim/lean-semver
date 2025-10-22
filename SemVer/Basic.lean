@@ -192,7 +192,7 @@ def parse {α : Type} (str : String) (parseElement : String → ParserResult α)
       | .failure e => .failure e
     | [] => .success []
 
-  match helper (str.split (· == sep)) parseElement with
+  match helper (str.splitToList (· == sep)) parseElement with
   | .success res =>
     if h : !res.isEmpty then
       .success ⟨res, h⟩
@@ -278,91 +278,49 @@ end NonEmptyStrings
 
 section Digits
 
-namespace Char
+/-
+TODO: Why it is not a good idea to use `Char.toNat` here
+-/
+def Char.toDigit? : Char → Option Nat
+  | '0' =>  some 0
+  | '1' =>  some 1
+  | '2' =>  some 2
+  | '3' =>  some 3
+  | '4' =>  some 4
+  | '5' =>  some 5
+  | '6' =>  some 6
+  | '7' =>  some 7
+  | '8' =>  some 8
+  | '9' =>  some 9
+  |  _  => none
 
-def parseForNatBase10 : Char → ParserResult Nat
-  | '0' => .success 0
-  | '1' => .success 1
-  | '2' => .success 2
-  | '3' => .success 3
-  | '4' => .success 4
-  | '5' => .success 5
-  | '6' => .success 6
-  | '7' => .success 7
-  | '8' => .success 8
-  | '9' => .success 9
-  |  c  => .failure {message := s!"{c} is no digit", position := 0}
+def Char.isNat' (c : Char) : Bool :=
+  match c.toDigit? with
+  | some _ => true
+  | none   => false
 
-def isDigitBase10 (chr : Char) : Bool := chr.parseForNatBase10.isSuccess
 
-def decIsDigitBase10 (chr : Char) : Decidable (chr.isDigitBase10) :=
-  if h: chr.parseForNatBase10.isSuccess then
-    isTrue (by simp [isDigitBase10, h])
-  else
-    isFalse (by simp [isDigitBase10, h])
-
-end Char
-
-namespace String
-
-def parseForNatBase10 (str : String) : ParserResult Nat :=
-
-  let rec listToNatBase10Helper : (List Char) → Nat → Nat → ParserResult Nat
-  | [], acc, _ => .success acc
-  | c::cs, acc, pos =>
-    match c.parseForNatBase10 with
-    | .success n => listToNatBase10Helper cs (acc * 10 + n) (pos + 1)
-    | .failure e => .failure {message := e.message, position := e.position}
-
-  match str with
-  | "" =>
-    .failure {
-      message := "input must not be empty"
-      position := 0,
-      input := str
-    }
-  | s  =>
-    match listToNatBase10Helper s.data 0 0 with
-    | .success n => .success n
-    | .failure e => .failure {message := e.message, position := e.position, input := str}
-
-def hasOnlyDigitsBase10 (str : String) : Bool := str.parseForNatBase10.isSuccess
-
-theorem lemma_parse_for_nat_base10 {str : String} :
-  str.hasOnlyDigitsBase10 → str.parseForNatBase10.isSuccess := by
-  intro h
-  unfold hasOnlyDigitsBase10 at h
-  exact h
-
-def parseForNatBase10Guarded (str : String) (g : str.hasOnlyDigitsBase10): Nat :=
-  match h: str.parseForNatBase10 with
-  | .success n => n
-  | .failure _ => by
-      have i : str.parseForNatBase10.isSuccess := by apply lemma_parse_for_nat_base10 g
-      simp [ParserResult.isSuccess] at i
-      grind only
-
-end String
+def Char.toNat!' (c : Char) : Nat :=
+  match c.toDigit? with
+  | some n => n
+  | none   => panic! s!"'{c}' is not a digit!"
 
 /--
-Return `(true, s.length)` if the given non-empty string `s` only contains digits and
-`(false, p)`otherwise, if `s` contains a non-digit character in position `p`.
--/
-def NonEmptyString.containsOnlyDigits (s: NonEmptyString) : Bool × Nat :=
-
-  let rec helper : (List Char) → Nat → Bool × Nat
-    | chr::tail, pos => if chr.isDigit then helper tail (pos + 1) else (false, pos)
-    | _, pos => (true, pos)
-
-  helper s.val.data 0
-
-/--
-Digits are non-empty strings that only contain digits as characters as in
+TODO: Explain why
+```lean
+def NonEmptyString.isNat (nes: NonEmptyString) : Bool := nes.val.isNat
 ```
-#eval (⟨⟨ "01234", rfl⟩, rfl⟩ : Digits)
-```
+is not a good idea.
 -/
-def Digits : Type := { s : NonEmptyString // s.containsOnlyDigits.fst = true }
+def NonEmptyString.isNat (nes: NonEmptyString) : Bool :=
+
+  let rec helper : List Char → Bool
+    | [] => true
+    | c::cs => c.isNat' && (helper cs)
+
+  helper nes.val.data
+
+def Digits : Type := { nes : NonEmptyString // nes.isNat}
 
 deriving instance DecidableEq, BEq, ToString, Repr for Digits
 
@@ -372,10 +330,12 @@ namespace Digits
 Convert string of digits `Nat`.
 -/
 def toNat (d : Digits) : Nat :=
-  let s := d.val.val
-  match s.toNat? with
-    | some n => n
-    | none => panic! "unexpected error"
+
+    let rec helper : List Char → Nat → Nat
+    | [], acc => acc
+    | c::cs, acc => helper cs (acc * 10 + c.toNat!')
+
+  helper d.val.val.data 0
 
 /--
 Less-then for digits, which is based on `Nat` (and not `String`)
@@ -387,8 +347,10 @@ def lt (a b : Digits) := a.toNat < b.toNat
 instance : LT Digits := ⟨lt⟩
 
 theorem lt_trans {a b c: Digits} (h1 : a < b) (h2 : b < c) : a < c := by
-  simp only [instLT] at h1 h2; unfold lt at h1 h2
-  simp only [instLT]; unfold lt
+  simp only [instLT] at h1 h2
+  unfold lt at h1 h2
+  simp only [instLT]
+  unfold lt
   exact Nat.lt_trans h1 h2
 
 instance : Trans (· < · : Digits → Digits → Prop) (· < ·) (· < ·) where
@@ -419,41 +381,18 @@ instance decidableLT (a b : Digits) : Decidable (a < b) :=
     have g : ¬ lt a b := by unfold lt; exact h
     isFalse g
 
-/-
-def a : Digits := ⟨⟨"02", rfl⟩, rfl⟩
-def b : Digits := ⟨⟨"1", rfl⟩, rfl⟩
 
-#eval a.val < b.val
-#eval b < a
--/
-theorem inj_not_incr : ∃ a b : Digits, a.val < b.val ∧ b < a := by
-  let a : Digits := ⟨⟨"02", rfl⟩, rfl⟩
-  let b : Digits := ⟨⟨"1", rfl⟩, rfl⟩
-  have h1 : a.val < b.val := by simp [a,b]; decide
-  have na : 2 = a.toNat := by simp [a]; unfold toNat; simp; sorry
-  sorry
+def parse (str: String) : ParserResult Digits :=
 
-/--
-Parse the given string and return a `ParserResult` containing
-term of type `Digits` if possible.
-
-Example:
-```
-#eval parse "001234" 0 -- ParserResult.success "001234"
-```
--/
-def parse (str : String) : ParserResult Digits :=
-  match NonEmptyString.parse str with
-  | .success b =>
-    let c := b.containsOnlyDigits
-    match g : c.fst with
-    | true => .success ⟨b,g⟩
-    | false => .failure {
-        message := "digits expected, but non-digit character found",
-        position := c.snd,
-        input := str
-      }
-  | .failure e => .failure e
+  if h1: !str.isEmpty then
+    let nes : NonEmptyString := ⟨str, h1⟩
+    if h2 : nes.isNat then
+      .success ⟨nes, h2⟩
+    else
+      let pos := str.find (not ∘ Char.isDigit)
+      .failure {message := "input string contains non-digit characters", position := pos.byteIdx, input := str}
+  else
+    .failure {message := "input string must not be empty", position := 0, input := str}
 
 end Digits
 end Digits
@@ -510,7 +449,15 @@ instance : LT NumIdent := ⟨lt⟩
 instance decidableLT (a b : NumIdent) : Decidable (a < b) :=
   Digits.decidableLT a.val b.val
 
+theorem lt_trans {a b c: NumIdent} (h1 : a < b) (h2 : b < c) : a < c := by
+  simp only [instLT] at h1 h2
+  unfold lt at h1 h2
+  simp only [instLT]
+  unfold lt
+  exact Nat.lt_trans h1 h2
 
+instance : Trans (· < · : NumIdent → NumIdent → Prop) (· < ·) (· < ·) where
+  trans a b := lt_trans a b
 
 def parse (str : String) : ParserResult NumIdent  :=
   match Digits.parse str with
@@ -556,6 +503,16 @@ instance : LT Ident := ⟨lt⟩
 instance decidableLT (a b : Ident) : Decidable (a < b) :=
   NonEmptyString.decLt a.val b.val
 
+theorem lt_trans {a b c: Ident} (h1 : a < b) (h2 : b < c) : a < c := by
+  simp only [instLT] at h1 h2
+  unfold lt at h1 h2
+  simp only [instLT]
+  unfold lt
+  exact NonEmptyString.lt_trans h1 h2
+
+instance : Trans (· < · : Ident → Ident → Prop) (· < ·) (· < ·) where
+  trans a b := lt_trans a b
+
 def parse (str : String) : ParserResult Ident :=
   match NonEmptyString.parse str  with
   | .failure e => .failure e
@@ -595,6 +552,16 @@ instance : LT AlphanumIdent := ⟨lt⟩
 
 instance decidableLT (a b : AlphanumIdent) : Decidable (a < b) :=
   Ident.decidableLT a.val b.val
+
+theorem lt_trans {a b c: AlphanumIdent} (h1 : a < b) (h2 : b < c) : a < c := by
+  simp only [instLT] at h1 h2
+  unfold lt at h1 h2
+  simp only [instLT]
+  unfold lt
+  exact NonEmptyString.lt_trans h1 h2
+
+instance : Trans (· < · : AlphanumIdent → AlphanumIdent → Prop) (· < ·) (· < ·) where
+  trans a b := lt_trans a b
 
 def parse (str : String) : ParserResult AlphanumIdent :=
   match Ident.parse str with
@@ -645,7 +612,8 @@ end BuildIdent
 def DotSepBuildIdents : Type := NonEmptyList BuildIdent
 
 deriving instance DecidableEq, BEq, Repr for DotSepBuildIdents
-instance : Inhabited DotSepBuildIdents := ⟨[(BuildIdent.digits ⟨⟨"0", rfl⟩, rfl⟩)], rfl⟩
+
+instance : Inhabited DotSepBuildIdents := ⟨[(BuildIdent.digits (⟨⟨"0", rfl⟩, rfl⟩: Digits))], rfl⟩
 
 namespace DotSepBuildIdents
 
@@ -675,7 +643,8 @@ def lt (a b : PreRelIdent) : Prop :=
   match a, b with
   | alphanumIdent _, numIdent _ => False
   | numIdent _, alphanumIdent _ => True
-  | alphanumIdent s, alphanumIdent t | numIdent s, numIdent t => s < t
+  | alphanumIdent s, alphanumIdent t
+  | numIdent s, numIdent t => s < t
 
 instance : LT PreRelIdent := ⟨lt⟩
 
@@ -692,6 +661,43 @@ def decLt (a b : PreRelIdent) : Decidable (a < b) :=
       isTrue (by rw [ha, hb] at h; exact h)
 
 instance : DecidableLT PreRelIdent := decLt
+
+theorem lt_trans {a b c: PreRelIdent} (h1 : a < b) (h2 : b < c) : a < c := by
+  simp only [instLT] at h1 h2; unfold lt at h1 h2
+  simp only [instLT]; unfold lt
+  cases ha: a with
+  | alphanumIdent aa =>
+    cases hb : b with
+    | alphanumIdent ba => --
+      cases hc : c with
+      | alphanumIdent ca =>
+        simp [ha, hb] at h1; simp [hb, hc] at h2; simp
+        exact AlphanumIdent.lt_trans h1 h2
+      | numIdent cn =>
+        simp [ha, hb] at h1; simp [hb, hc] at h2
+    | numIdent bn =>
+      cases hc : c with
+      | alphanumIdent ca
+      | numIdent cn =>
+        simp [ha, hb] at h1
+  | numIdent an =>
+    cases hb : b with
+    | alphanumIdent ba =>
+      cases hc : c with
+      | alphanumIdent ca =>
+        simp
+      | numIdent cn =>
+        simp [ha, hb] at h1; simp [hb, hc] at h2
+    | numIdent bn =>
+      cases hc : c with
+      | alphanumIdent ca =>
+        simp
+      | numIdent cn =>
+        simp [ha, hb] at h1; simp [hb, hc] at h2; simp
+        exact NumIdent.lt_trans h1 h2
+
+instance : Trans (· < · : PreRelIdent → PreRelIdent → Prop) (· < ·) (· < ·) where
+  trans a b := lt_trans a b
 
 def toString : PreRelIdent → String
   | alphanumIdent val => (ToString.toString val)
@@ -835,8 +841,8 @@ instance : DecidableLT Version := decLt
 
 def parseCorePreRel (str : String) :
   ParserResult (VersionCore × Option DotSepPreRelIdents) :=
-  match str.split (· == '-') with
-  | [] => panic "internal error - split returns empty list"
+  match str.splitToList (· == '-') with
+  | [] => panic "internal error - splitToList returns empty list"
   | core_str::tail =>
     let pre_rel_str := String.intercalate "-" tail
     let core_res := VersionCore.parse core_str
@@ -856,8 +862,8 @@ def parseCorePreRel (str : String) :
           }
 
 def parse (str : String) : ParserResult Version :=
-  match str.split (· == '+') with
-  | [] => panic "internal error - split returns empty list"
+  match str.splitToList (· == '+') with
+  | [] => panic "internal error - splitToList returns empty list"
   | [core_pre_rel_str] =>
       match parseCorePreRel core_pre_rel_str  with
       | .failure e => .failure e
@@ -961,6 +967,6 @@ def extractVersions (str: String) : List Version :=
       | .success v => v::(helper tail)
       | .failure _ => helper tail
 
-  helper (str.split (!Version.charIsValid ·))
+  helper (str.splitToList (!Version.charIsValid ·))
 
 end Extraction
