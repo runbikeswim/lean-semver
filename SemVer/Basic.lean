@@ -829,11 +829,40 @@ def toString (a : Version) : String :=
 
 instance : ToString Version := ⟨toString⟩
 
-private def ltPreRelease (a b : Version) : Bool :=
+def ltPreRelease (a b : Version) : Bool :=
   match a.preRelease, b.preRelease with
   | some _, none => true
   | some s, some t => (s.decLt t).decide
   | none, none | none, some _ => false
+
+theorem ltPreRelease_trans {a b c : Version} (h1: ltPreRelease a b) (h2 : ltPreRelease b c) : (ltPreRelease a c) := by
+  unfold ltPreRelease
+  unfold ltPreRelease at h1 h2
+  cases ha: a.preRelease with
+  | none =>
+    cases hb: b.preRelease with
+    | none =>
+      cases hc: c.preRelease with
+      | none => simp [ha, hb] at h1
+      | some _ => simp [ha, hb] at h1
+    | some _ =>
+      cases hc: c.preRelease with
+      | none => simp [ha, hb] at h1
+      | some _ => simp [ha, hb] at h1
+  | some ap =>
+    cases hb: b.preRelease with
+    | none =>
+      cases hc: c.preRelease with
+      | none => simp [hb, hc] at h2
+      | some _ => simp [hb, hc] at h2
+    | some bp =>
+      cases hc: c.preRelease with
+      | none => simp
+      | some cp =>
+        simp
+        simp [ha, hb] at h1
+        simp [hb, hc] at h2
+        exact DotSepPreRelIdents.lt_trans h1 h2
 
 def lt (v w : Version) : Prop :=
   (v.toVersionCore < w.toVersionCore) ∨
@@ -877,8 +906,17 @@ theorem lt_trans {a b c: Version} (h1 : a < b) (h2 : b < c) : a < c := by
       exact Or.inl g
   | inr h1r =>
     cases h2 with
-    | inl h2l => sorry
-    | inr h2r => sorry
+    | inl h2l =>
+      have ⟨h1rl,h1rr⟩ := h1r
+      have g: a.toVersionCore < c.toVersionCore := by rw [h1rl]; exact h2l
+      exact Or.inl g
+    | inr h2r =>
+      right
+      have ⟨h1rl,h1rr⟩ := h1r
+      have ⟨h2rl,h2rr⟩ := h2r
+      have g : a.toVersionCore = c.toVersionCore := by rw [h1rl]; exact h2rl
+      have i : a.ltPreRelease c = true := sorry
+      sorry
 
 instance : Trans (· < · : DotSepPreRelIdents → DotSepPreRelIdents → Prop) (· < ·) (· < ·) where
   trans a b := sorry -- lt_trans a b
