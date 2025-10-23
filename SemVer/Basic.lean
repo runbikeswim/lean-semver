@@ -52,6 +52,9 @@ instance {α : Type} : Inhabited (ParserResult α) := ⟨.failure default⟩
 
 namespace ParserResult
 
+/--
+`isSuccess` is `true` iff the `ParserResult` contains a value of type `α`.
+-/
 def isSuccess {α : Type} (res : ParserResult α) : Bool :=
   match res with
   | .success _ => true
@@ -128,7 +131,8 @@ theorem inj_incr {α: Type} [LT α] (a b : NonEmptyList α) : a < b ↔ a.val < 
   exact h
 
 /--
-Based on the above, the theorem `List.lt_trans` can be _carried over_ to `NonEmptyList`.
+Based on the above, the theorem `List.lt_trans` can be _carried over_
+to `NonEmptyList`.
 -/
 theorem lt_trans {α: Type} [LT α]
   [i1 : Trans (· < · : α → α → Prop) (· < ·) (· < ·)]
@@ -171,7 +175,7 @@ def toDotSeparatedString {α : Type} [ToString α] (a : NonEmptyList α) : Strin
 
 /--
 Parse the given string and, if possible, return a result containing
-a non-empty list of terms of type α.
+a non-empty list of terms of type `α`.
 -/
 def parse {α : Type} (str : String) (parseElement : String → ParserResult α) (sep : Char) :
   ParserResult (NonEmptyList α) :=
@@ -231,6 +235,11 @@ def lt (a b : NonEmptyString) : Prop := a.val < b.val
 
 instance : LT NonEmptyString := ⟨lt⟩
 
+/--
+The following lemma assert that the _canonical injection_
+`NonEmptyString → String : a ↦ a.val` is a strictly increasing function
+under the respective `<`-relations.
+-/
 theorem inj_incr (a b : NonEmptyString) : a < b ↔ a.val < b.val := by
   constructor
   intro h
@@ -240,6 +249,9 @@ theorem inj_incr (a b : NonEmptyString) : a < b ↔ a.val < b.val := by
   simp at h
   exact h
 
+/--
+`lt_trans` ensures that `<` is transitive for `NonEmptyString`s.
+-/
 theorem lt_trans {a b c: NonEmptyString} (h1 : a < b) (h2 : b < c) : a < c := by
   rw [inj_incr]
   rw [inj_incr] at h1 h2
@@ -278,8 +290,20 @@ end NonEmptyStrings
 
 section Digits
 
-/-
-TODO: Why it is not a good idea to use `Char.toNat` here
+
+/--
+`toDigit?` converts a character representing a digit of base ten
+to the natural number corresponding to this digit. For other
+characters `none` is returned.
+
+This implementation is better suited for proves compared to e.g.
+```lean
+def Char.toDigit? (c: Char) : Option Nat :=
+  if c.isDigit then
+    some (c.toNat - '0'.toNat)
+  else
+    none
+```
 -/
 def Char.toDigit? : Char → Option Nat
   | '0' =>  some 0
@@ -835,7 +859,8 @@ def ltPreRelease (a b : Version) : Bool :=
   | some s, some t => (s.decLt t).decide
   | none, none | none, some _ => false
 
-theorem ltPreRelease_trans {a b c : Version} (h1: ltPreRelease a b) (h2 : ltPreRelease b c) : (ltPreRelease a c) := by
+theorem ltPreRelease_trans {a b c : Version} (h1: a.ltPreRelease b) (h2 : b.ltPreRelease c) :
+  (a.ltPreRelease c) := by
   unfold ltPreRelease
   unfold ltPreRelease at h1 h2
   cases ha: a.preRelease with
@@ -915,11 +940,11 @@ theorem lt_trans {a b c: Version} (h1 : a < b) (h2 : b < c) : a < c := by
       have ⟨h1rl,h1rr⟩ := h1r
       have ⟨h2rl,h2rr⟩ := h2r
       have g : a.toVersionCore = c.toVersionCore := by rw [h1rl]; exact h2rl
-      have i : a.ltPreRelease c = true := sorry
-      sorry
+      have i : a.ltPreRelease c := ltPreRelease_trans h1rr h2rr
+      exact And.intro g i
 
-instance : Trans (· < · : DotSepPreRelIdents → DotSepPreRelIdents → Prop) (· < ·) (· < ·) where
-  trans a b := sorry -- lt_trans a b
+instance : Trans (· < · : Version → Version → Prop) (· < ·) (· < ·) where
+  trans a b := lt_trans a b
 
 def parseCorePreRel (str : String) :
   ParserResult (VersionCore × Option DotSepPreRelIdents) :=
