@@ -206,6 +206,11 @@ section Tests
 #eval (Version.parse "1.101").to!
 -/
 
+def l :=  [1,2,3]
+def h : l.length == 3 := by rfl
+def s := "1.2.3"
+#eval expect_eq (VersionCore.fromList l h) (VersionCore.parse s).to! true
+
 def in_01 := "1.2.3"
 def tst_01 : Version :=
   { toVersionCore := { major := 1, minor := 2, patch := 3 }, preRelease := none, build := none }

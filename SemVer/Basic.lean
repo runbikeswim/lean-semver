@@ -734,6 +734,19 @@ instance : Repr DotSepPreRelIdents := ⟨repr⟩
 def lt (a b : DotSepPreRelIdents) : Prop := NonEmptyList.lt a b
 instance : LT DotSepPreRelIdents := ⟨lt⟩
 
+def decLt (a b : DotSepPreRelIdents) : Decidable (a < b) := NonEmptyList.decLt a b
+instance : DecidableLT DotSepPreRelIdents := decLt
+
+theorem lt_trans {a b c: DotSepPreRelIdents} (h1 : a < b) (h2 : b < c) : a < c := by
+  simp only [instLT] at h1 h2
+  unfold lt at h1 h2
+  simp only [instLT]
+  unfold lt
+  exact NonEmptyList.lt_trans h1 h2
+
+instance : Trans (· < · : DotSepPreRelIdents → DotSepPreRelIdents → Prop) (· < ·) (· < ·) where
+  trans a b := lt_trans a b
+
 def toString : DotSepPreRelIdents → String := NonEmptyList.toDotSeparatedString
 
 instance : ToString DotSepPreRelIdents := ⟨toString⟩
@@ -766,12 +779,20 @@ def fromList (l : List Nat) (h : l.length == 3) : VersionCore :=
   | [m,n,p] => {major := m, minor := n, patch := p}
 
 def lt (v w : VersionCore) : Prop := v.toList < w.toList
-
 instance : LT VersionCore := ⟨lt⟩
 
 def decLt (v w : VersionCore) : Decidable (v < w) := v.toList.decidableLT w.toList
-
 instance : DecidableLT VersionCore := decLt
+
+theorem lt_trans {a b c: VersionCore} (h1 : a < b) (h2 : b < c) : a < c := by
+  simp only [instLT] at h1 h2
+  unfold lt at h1 h2
+  simp only [instLT]
+  unfold lt
+  exact List.lt_trans h1 h2
+
+instance : Trans (· < · : VersionCore → VersionCore → Prop) (· < ·) (· < ·) where
+  trans a b := lt_trans a b
 
 def parse (str : String) : ParserResult VersionCore  :=
   match NonEmptyList.parse str NumIdent.parse '.' with
@@ -838,6 +859,29 @@ def decLt (v w : Version) : Decidable (v < w) :=
        isFalse h3
 
 instance : DecidableLT Version := decLt
+
+theorem lt_trans {a b c: Version} (h1 : a < b) (h2 : b < c) : a < c := by
+  simp only [instLT] at h1 h2
+  unfold lt at h1 h2
+  simp only [instLT]
+  unfold lt
+  cases h1 with
+  | inl h1l =>
+    cases h2 with
+    | inl h2l =>
+      have g: a.toVersionCore < c.toVersionCore := VersionCore.lt_trans h1l h2l
+      exact Or.inl g
+    | inr h2r =>
+      have ⟨h2rl,h2rr⟩ := h2r
+      have g: a.toVersionCore < c.toVersionCore := by rw [← h2rl]; exact h1l
+      exact Or.inl g
+  | inr h1r =>
+    cases h2 with
+    | inl h2l => sorry
+    | inr h2r => sorry
+
+instance : Trans (· < · : DotSepPreRelIdents → DotSepPreRelIdents → Prop) (· < ·) (· < ·) where
+  trans a b := sorry -- lt_trans a b
 
 def parseCorePreRel (str : String) :
   ParserResult (VersionCore × Option DotSepPreRelIdents) :=
