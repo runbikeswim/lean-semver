@@ -202,9 +202,18 @@ section Tests
 
 #print "running tests ..."
 
-/- this will cause panic
-#eval (Version.parse "1.101").to!
--/
+#eval expect_eq (Digits.hasNoLeadingZeros (⟨ ⟨ "0", rfl ⟩ , rfl⟩ : Digits)) true true
+#eval expect_eq (Digits.hasNoLeadingZeros (⟨ ⟨ "10230", rfl ⟩ , rfl⟩ : Digits)) true true
+#eval expect_eq (Digits.hasNoLeadingZeros (⟨ ⟨ "0230", rfl ⟩ , rfl⟩ : Digits)) false true
+#eval expect_eq (Digits.hasNoLeadingZeros (⟨ ⟨ "0010230", rfl ⟩ , rfl⟩ : Digits)) false true
+
+def a : NonEmptyString := ⟨"23", rfl⟩
+def b : NonEmptyString := ⟨"123", rfl⟩
+#eval expect_lt b a true
+
+def a' : Digits := ⟨a, rfl⟩
+def b' : Digits := ⟨b, rfl⟩
+#eval expect_lt a' b' true
 
 def l :=  [1,2,3]
 def h : l.length == 3 := by rfl

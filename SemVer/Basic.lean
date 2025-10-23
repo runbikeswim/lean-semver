@@ -19,7 +19,7 @@ deriving Repr, BEq
 namespace ParserError
 
 /--
-Return a formatted string that contains the error message and position.
+Returns a formatted string that contains the error message and position.
 -/
 def toString (e : ParserError) : String :=
   match e.input with
@@ -45,7 +45,7 @@ inductive ParserResult (α : Type) where
 deriving Repr, BEq
 
 /--
-Define a failure with "unknown error" as message an implausible position
+Defines a failure with "unknown error" as message an implausible position
 as default value for parser result.
 -/
 instance {α : Type} : Inhabited (ParserResult α) := ⟨.failure default⟩
@@ -78,7 +78,7 @@ def to! {α : Type} [Inhabited α] (res : ParserResult α) : α :=
   | .failure e => panic s!"no parser result due to {e}"
 
 /--
-For convenience, `toIO!` converts the value from a `.success` parser result
+`toIO!` converts the value from a `.success` parser result
 into an term of `IO α` and throws an error, if a `.failure` is provided.
 -/
 def toIO! {α : Type} (res : ParserResult α) : IO α := do
@@ -104,22 +104,18 @@ instance (α : Type) [DecidableEq α] : DecidableEq (NonEmptyList α) :=
 namespace NonEmptyList
 
 /--
-`lt` (less than) is the basis for implementing the precedence of versions as defined under
-[item #11 in semver.org](https://semver.org/#spec-item-11).
-
-[`List.lt`](https://lean-lang.org/doc/api/Init/Data/List/Basic.html#List.lt)
-can be used directly for implementing the required behavior.
+Less-then (`lt`) for non-empty lists.
 -/
 def lt {α: Type} [LT α] (a b : NonEmptyList α) : Prop := a.val.lt b.val
 
 instance (α : Type) [LT α] : LT (NonEmptyList α) := ⟨lt⟩
 
 /--
-The following theorem ensures that the canonical injection
+Ensures that the _canonical injection_
 ```
 fun {α : Type} (a : NonEmptyList α) => a.val
 ```
-is strictly monotone under the respective less-then relations.
+is strictly increasing under the respective `<`-relations.
 -/
 theorem inj_incr {α: Type} [LT α] (a b : NonEmptyList α) : a < b ↔ a.val < b.val := by
   constructor
@@ -131,8 +127,7 @@ theorem inj_incr {α: Type} [LT α] (a b : NonEmptyList α) : a < b ↔ a.val < 
   exact h
 
 /--
-Based on the above, the theorem `List.lt_trans` can be _carried over_
-to `NonEmptyList`.
+Ensures, that `<` is a transitive relation.
 -/
 theorem lt_trans {α: Type} [LT α]
   [i1 : Trans (· < · : α → α → Prop) (· < ·) (· < ·)]
@@ -155,14 +150,14 @@ instance (α : Type) [DecidableEq α] [LT α] [DecidableLT α] :
   DecidableLT (NonEmptyList α) := decLt
 
 /--
-Provide an implementation of `repr` so that `#eval` can be used on non-empty lists.
+Provides an implementation of `repr` so that `#eval` can be used on non-empty lists.
 -/
 def repr {α : Type} [Repr α] (a : NonEmptyList α) (n : Nat) : Std.Format := List.repr a.val n
 
 instance (α : Type) [Repr α] : Repr (NonEmptyList α) := ⟨repr⟩
 
 /--
-Render a non-empty list as string with its elements separated by ".".
+Renders a non-empty list as string with its elements separated by ".".
 
 For instance,
 ```lean
@@ -174,7 +169,7 @@ def toDotSeparatedString {α : Type} [ToString α] (a : NonEmptyList α) : Strin
   String.intercalate "." (a.val.map (fun a => ToString.toString a))
 
 /--
-Parse the given string and, if possible, return a result containing
+Parses the given string and, if possible, returns a result containing
 a non-empty list of terms of type `α`.
 -/
 def parse {α : Type} (str : String) (parseElement : String → ParserResult α) (sep : Char) :
@@ -196,7 +191,7 @@ def parse {α : Type} (str : String) (parseElement : String → ParserResult α)
       | .failure e => .failure e
     | [] => .success []
 
-  match helper (str.splitToList (· == sep)) parseElement with
+  match helper (str.split (· == sep)) parseElement with
   | .success res =>
     if h : !res.isEmpty then
       .success ⟨res, h⟩
@@ -215,9 +210,10 @@ end NonEmptyLists
 section NonEmptyStrings
 
 /--
-Non-empty strings are the _base type_ for the different kinds of identifiers.
-They ensure that the requirement "Identifiers MUST NOT be empty." that is stated as
-[item #9 in semver.org](https://semver.org/#spec-item-9) is fulfilled.
+Defines non-empty strings as _base type_ for the different kinds of identifiers.
+
+They ensure that the requirement "Identifiers MUST NOT be empty." fulfilled that
+is stated as [item #9 in semver.org](https://semver.org/#spec-item-9).
 -/
 def NonEmptyString : Type := { s : String // !s.isEmpty }
 
@@ -226,18 +222,15 @@ deriving instance DecidableEq, BEq, ToString, Repr for NonEmptyString
 namespace NonEmptyString
 
 /--
-`lt` is for comparing two non-empty strings as in
-```
-#check lt (⟨"abc", rfl⟩ : NonEmptyString) (⟨"bcd", rfl⟩ : NonEmptyString)
-```
+Less-then (`lt`) for non-empty strings.
 -/
 def lt (a b : NonEmptyString) : Prop := a.val < b.val
 
 instance : LT NonEmptyString := ⟨lt⟩
 
 /--
-The following lemma assert that the _canonical injection_
-`NonEmptyString → String : a ↦ a.val` is a strictly increasing function
+Assert that the _canonical injection_
+`fun (a : NonEmptyString) => a.val` is a strictly increasing function
 under the respective `<`-relations.
 -/
 theorem inj_incr (a b : NonEmptyString) : a < b ↔ a.val < b.val := by
@@ -250,7 +243,7 @@ theorem inj_incr (a b : NonEmptyString) : a < b ↔ a.val < b.val := by
   exact h
 
 /--
-`lt_trans` ensures that `<` is transitive for `NonEmptyString`s.
+Ensures that `<` is transitive for `NonEmptyString`s.
 -/
 theorem lt_trans {a b c: NonEmptyString} (h1 : a < b) (h2 : b < c) : a < c := by
   rw [inj_incr]
@@ -273,7 +266,7 @@ def decLt (a b : NonEmptyString) : Decidable (a < b) :=
 instance decidableLT (a b : NonEmptyString) : Decidable (a < b) := decLt a b
 
 /--
-Parse a given string and return a result containing a non-empty string if possible.
+Parses a given string and returns a result containing a non-empty string if possible.
 -/
 def parse (str : String) : ParserResult NonEmptyString :=
   if h: !str.isEmpty then
@@ -290,22 +283,23 @@ end NonEmptyStrings
 
 section Digits
 
+namespace Char
 
 /--
-`toDigit?` converts a character representing a digit of base ten
-to the natural number corresponding to this digit. For other
+Converts a character representing a digit for base ten
+to the natural number corresponding to this digit - for other
 characters `none` is returned.
 
 This implementation is better suited for proves compared to e.g.
 ```lean
-def Char.toDigit? (c: Char) : Option Nat :=
+def toDigit? (c: Char) : Option Nat :=
   if c.isDigit then
     some (c.toNat - '0'.toNat)
   else
     none
 ```
 -/
-def Char.toDigit? : Char → Option Nat
+def toDigit? : Char → Option Nat
   | '0' =>  some 0
   | '1' =>  some 1
   | '2' =>  some 2
@@ -318,58 +312,111 @@ def Char.toDigit? : Char → Option Nat
   | '9' =>  some 9
   |  _  => none
 
-def Char.isNat' (c : Char) : Bool :=
+/--
+Is an alternative implementation to
+the standard function `Char.isDigit` that is
+based on `Char.toDigit?`.
+
+For proofs, this implementation is easier to
+handle - at least for me :-).
+-/
+def isDigit' (c : Char) : Bool :=
   match c.toDigit? with
   | some _ => true
   | none   => false
 
+/--
+Returns the digit as natural number for a
+given character that is known to be one of '0', '1' ... '9'
+-/
+def toDigit (c : Char) (h: c.isDigit') : Nat :=
+  match g: c.toDigit? with
+  | some n => n
+  | none   => by unfold isDigit' at h; simp [g] at h
 
-def Char.toNat!' (c : Char) : Nat :=
+/--
+Converts a digit to a natural number and panics for characters
+that are no digits (for base ten).
+-/
+def toDigit! (c : Char) : Nat :=
   match c.toDigit? with
   | some n => n
   | none   => panic! s!"'{c}' is not a digit!"
 
+
+end Char
+
 /--
-TODO: Explain why
+Returns `true` of the `NonEmptyString` that is provided as
+input only contains digits (for base ten). It is based on `Char.isDigit'`,
+so that it easier to work with it in proofs.
+
+This is why I prefer it over, the following shorter implementation
 ```lean
-def NonEmptyString.isNat (nes: NonEmptyString) : Bool := nes.val.isNat
+def NonEmptyString.hasOnlyDigits (nes: NonEmptyString) : Bool := nes.val.isNat
 ```
-is not a good idea.
 -/
-def NonEmptyString.isNat (nes: NonEmptyString) : Bool :=
+def NonEmptyString.hasOnlyDigits (nes: NonEmptyString) : Bool :=
 
   let rec helper : List Char → Bool
     | [] => true
-    | c::cs => c.isNat' && (helper cs)
+    | c::cs => c.isDigit' && (helper cs)
 
   helper nes.val.data
 
-def Digits : Type := { nes : NonEmptyString // nes.isNat}
+/--
+Defines a subtype of `NonEmptyString` with the restriction
+that all characters must be digits.
+-/
+def Digits : Type := { nes : NonEmptyString // nes.hasOnlyDigits}
 
 deriving instance DecidableEq, BEq, ToString, Repr for Digits
 
 namespace Digits
 
+
 /--
-Convert string of digits `Nat`.
+Converts a non-empty string of digits to `Nat`.
+
+Also here, shorter implementations exists like
+```lean
+def toNat (nes: NonEmptyString) : Nat := nes.val.toNat!
+```
+However, for direct use in proofs, I prefer this code.
 -/
 def toNat (d : Digits) : Nat :=
 
     let rec helper : List Char → Nat → Nat
     | [], acc => acc
-    | c::cs, acc => helper cs (acc * 10 + c.toNat!')
+    | c::cs, acc => helper cs (acc * 10 + c.toDigit!)
 
   helper d.val.val.data 0
 
 /--
-Less-then for digits, which is based on `Nat` (and not `String`)
-as defined in https://semver.org/ under 4.1: Identifiers
-consisting of only digits are compared numerically.
+Less-then (`lt`) for digits, which is based on `Nat` (and not `String`)
+as defined in https://semver.org/ under 4.1:
+```text
+Identifiers consisting of only digits are compared numerically.
+```
+This means that the _canonical injection_ `fun (a : Digits) => a.val`
+is not a strictly increasing function as the following example shows:
+```lean
+def a : NonEmptyString := ⟨"23", rfl⟩
+def b : NonEmptyString := ⟨"123", rfl⟩
+#eval b < a -- true
+
+def a' : Digits := ⟨a, rfl⟩
+def b' : Digits := ⟨b, rfl⟩
+#eval a' < b' -- true
+```
 -/
 def lt (a b : Digits) := a.toNat < b.toNat
 
 instance : LT Digits := ⟨lt⟩
 
+/--
+Asserts that `<` for `Digits` is a transitive relation.
+-/
 theorem lt_trans {a b c: Digits} (h1 : a < b) (h2 : b < c) : a < c := by
   simp only [instLT] at h1 h2
   unfold lt at h1 h2
@@ -381,21 +428,7 @@ instance : Trans (· < · : Digits → Digits → Prop) (· < ·) (· < ·) wher
   trans a b := lt_trans a b
 
 /--
-Decidable less-then for digits, which allows for evaluations like
-the ones at the end of of this example
-```
-def nes0 : NonEmptyString := ⟨"01234", rfl⟩
-def nes1 : NonEmptyString := ⟨"002234", rfl⟩
-
-#eval nes0 < nes1 -- false
-#eval nes1 < nes0 -- true
-
-def d0 : Digits := ⟨nes0, rfl⟩
-def d1 : Digits := ⟨nes1, rfl⟩
-
-#eval d0 < d1 -- true
-#eval d1 < d0 -- false
-```
+Decidable less-then for `Digits`.
 -/
 instance decidableLT (a b : Digits) : Decidable (a < b) :=
   if h: a.toNat < b.toNat then
@@ -406,11 +439,15 @@ instance decidableLT (a b : Digits) : Decidable (a < b) :=
     isFalse g
 
 
+/--
+Converts strings into `Digits` if possible - wrapped into a
+`ParserResult`.
+-/
 def parse (str: String) : ParserResult Digits :=
 
   if h1: !str.isEmpty then
     let nes : NonEmptyString := ⟨str, h1⟩
-    if h2 : nes.isNat then
+    if h2 : nes.hasOnlyDigits then
       .success ⟨nes, h2⟩
     else
       let pos := str.find (not ∘ Char.isDigit)
@@ -424,17 +461,15 @@ end Digits
 section NumericIdentifiers
 
 /--
-Detect if a given term of type `Digits` has leading zeros.
+Detect if a given term of type `Digits` has a leading zero.
+
 https://semver.org/ forbids leading zeros for both, numbers
 in the version _core_ and numeric identifiers.
 -/
-def Digits.hasNoLeadingZeros (d: Digits) : Bool × Nat :=
-  let helper : (List Char) → Nat → Bool × Nat
-  | [], pos => (true, pos)
-  | [_], pos => (true, pos)
-  | chr::_, pos => (chr != '0', pos)
-
-  helper d.val.val.data 0
+def Digits.hasNoLeadingZeros (d: Digits) : Bool :=
+  match d.val.val.data with
+  | c::(_::_) => c != '0'
+  | _ => true
 
 /--
 Numeric identifiers are sequences of digits without leading
@@ -443,7 +478,7 @@ zeros.
 Examples: Strings `"1234"` and `"0"` are valid numeric identifiers
 while `"01"` is not.
 -/
-def NumIdent : Type := { d: Digits // d.hasNoLeadingZeros.fst}
+def NumIdent : Type := { d: Digits // d.hasNoLeadingZeros }
 
 deriving instance DecidableEq, BEq, ToString, Repr for NumIdent
 
@@ -456,16 +491,7 @@ def toNat (n : NumIdent) : Nat := n.val.toNat
 
 /--
 Less-then for numerical identifiers, which is based
-on their value as natural number.
-
-TODO: Explain
-```
-def a : NumIdent := ⟨⟨⟨"13", rfl⟩, rfl⟩, rfl⟩
-def b : NumIdent := ⟨⟨⟨"123", rfl⟩, rfl⟩, rfl⟩
-#eval a < b
-#eval a.val < b.val
-#eval b.val.val < a.val.val
-```
+on their value as natural number and not as strings.
 -/
 def lt (a b : NumIdent) : Prop := a.toNat < b.toNat
 instance : LT NumIdent := ⟨lt⟩
@@ -473,6 +499,9 @@ instance : LT NumIdent := ⟨lt⟩
 instance decidableLT (a b : NumIdent) : Decidable (a < b) :=
   Digits.decidableLT a.val b.val
 
+/--
+Ensures, that `<` on `NumIdent`s is a transitive relation.
+-/
 theorem lt_trans {a b c: NumIdent} (h1 : a < b) (h2 : b < c) : a < c := by
   simp only [instLT] at h1 h2
   unfold lt at h1 h2
@@ -483,15 +512,19 @@ theorem lt_trans {a b c: NumIdent} (h1 : a < b) (h2 : b < c) : a < c := by
 instance : Trans (· < · : NumIdent → NumIdent → Prop) (· < ·) (· < ·) where
   trans a b := lt_trans a b
 
+/--
+Parses strings into `NumIdent` wrapped into a `ParserResult`
+if possible.
+-/
 def parse (str : String) : ParserResult NumIdent  :=
   match Digits.parse str with
   | .success dig =>
     let lz := dig.hasNoLeadingZeros
-    match g : lz.fst with
+    match g : lz with
     | true => .success ⟨dig,g⟩
     | false => .failure {
         message := "numeric identifiers must not have leading zeros",
-        position := lz.snd,
+        position := 0,
         input := str
       }
   | .failure e => .failure e
@@ -501,12 +534,29 @@ end NumericIdentifiers
 
 section Identifiers
 
+
+/-
+TODO: Cleanup
+-/
+def NonEmptyString.posOfNonIdentChar (s: NonEmptyString) : Nat :=
+  let rec helper : (List Char) → Nat → Nat
+  | chr::tail, pos => if chr.isAlphanum || chr = '-' then helper tail (pos + 1) else pos
+  | [], pos => pos
+
+  helper s.val.data 0
+
+#eval NonEmptyString.posOfNonIdentChar (⟨"0-+123", rfl⟩ : NonEmptyString)
+
+def NonEmptyString.isIdent' (s: NonEmptyString) : Bool := s.posOfNonIdentChar == s.val.length
+
+#eval NonEmptyString.isIdent' (⟨"0-aba123", rfl⟩ : NonEmptyString)
+
 /--
-Fundamental base type for the different kinds of identifiers to ensure
+TODO: replace Bool × Nat with Bool
+Defines the fundamental base type for the different kinds of identifiers to ensure
 "Identifiers MUST comprise only ASCII alphanumerics and hyphens [0-9A-Za-z-]."
 (see 9. in https://semver.org/).
 -/
-
 def NonEmptyString.isIdent (s: NonEmptyString) : Bool × Nat :=
   let rec helper : (List Char) → Nat → Bool × Nat
   | chr::tail, pos => if chr.isAlphanum || chr = '-' then helper tail (pos + 1) else (false, pos)
@@ -948,8 +998,8 @@ instance : Trans (· < · : Version → Version → Prop) (· < ·) (· < ·) wh
 
 def parseCorePreRel (str : String) :
   ParserResult (VersionCore × Option DotSepPreRelIdents) :=
-  match str.splitToList (· == '-') with
-  | [] => panic "internal error - splitToList returns empty list"
+  match str.split (· == '-') with
+  | [] => panic "internal error - split returns empty list"
   | core_str::tail =>
     let pre_rel_str := String.intercalate "-" tail
     let core_res := VersionCore.parse core_str
@@ -969,8 +1019,8 @@ def parseCorePreRel (str : String) :
           }
 
 def parse (str : String) : ParserResult Version :=
-  match str.splitToList (· == '+') with
-  | [] => panic "internal error - splitToList returns empty list"
+  match str.split (· == '+') with
+  | [] => panic "internal error - split returns empty list"
   | [core_pre_rel_str] =>
       match parseCorePreRel core_pre_rel_str  with
       | .failure e => .failure e
@@ -1074,6 +1124,6 @@ def extractVersions (str: String) : List Version :=
       | .success v => v::(helper tail)
       | .failure _ => helper tail
 
-  helper (str.splitToList (!Version.charIsValid ·))
+  helper (str.split (!Version.charIsValid ·))
 
 end Extraction
