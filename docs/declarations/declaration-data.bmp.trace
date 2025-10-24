@@ -1,0 +1,17 @@
+{"synthetic": false,
+ "outputs": null,
+ "log":
+ [{"message": "Documentation indexing", "level": "info"},
+  {"message":
+   ".> /home/stefan/lean-semver/.lake/packages/doc-gen4/.lake/build/bin/doc-gen4 index --build /home/stefan/lean-semver/docbuild/.lake/build",
+   "level": "trace"}],
+ "inputs":
+ [["/home/stefan/lean-semver/.lake/packages/doc-gen4/.lake/build/bin/doc-gen4",
+   "7950710533227321825"],
+  ["<nil>", "1383784361690032856"],
+  ["<collection>",
+   [["/home/stefan/lean-semver/docbuild/.lake/build/doc/SemVer/Basic.html",
+     "9499899495081918346"],
+    ["/home/stefan/lean-semver/docbuild/.lake/build/doc/SemVer.html",
+     "9694352924386129204"]]]],
+ "depHash": "15231785973426652254"}
