@@ -27,7 +27,6 @@ def toString (e : ParserError) : String :=
   | none => s!"error in position {e.position}: {e.message}"
 
 instance : ToString ParserError := ⟨toString⟩
-
 instance : Inhabited ParserError := ⟨{message := "unknown error", position := 42}⟩
 
 end ParserError
@@ -109,36 +108,6 @@ Less-then (`lt`) for non-empty lists.
 def lt {α: Type} [LT α] (a b : NonEmptyList α) : Prop := a.val.lt b.val
 
 instance (α : Type) [LT α] : LT (NonEmptyList α) := ⟨lt⟩
-
-/--
-Ensures that the _canonical injection_
-```
-fun {α : Type} (a : NonEmptyList α) => a.val
-```
-is strictly increasing under the respective `<`-relations.
--/
-theorem inj_incr {α: Type} [LT α] (a b : NonEmptyList α) : a < b ↔ a.val < b.val := by
-  constructor
-  intro h
-  simp at h
-  exact h
-  intro h
-  simp at h
-  exact h
-
-/--
-Ensures, that `<` is a transitive relation.
--/
-theorem lt_trans {α: Type} [LT α]
-  [i1 : Trans (· < · : α → α → Prop) (· < ·) (· < ·)]
-  {a b c: NonEmptyList α} (h1 : a < b) (h2 : b < c) : a < c := by
-  rw [inj_incr]
-  rw [inj_incr] at h1 h2
-  apply List.lt_trans h1 h2
-
-instance {α: Type} [LT α] [Trans (· < · : α → α → Prop) (· < ·) (· < ·)] :
-    Trans (· < · : NonEmptyList α → NonEmptyList α → Prop) (· < ·) (· < ·) where
-  trans a b := lt_trans a b
 
 /--
 `decLt` is the decidable `<`-relation for non-empty lists.
@@ -229,31 +198,6 @@ def lt (a b : NonEmptyString) : Prop := a.val < b.val
 instance : LT NonEmptyString := ⟨lt⟩
 
 /--
-Assert that the _canonical injection_
-`fun (a : NonEmptyString) => a.val` is a strictly increasing function
-under the respective `<`-relations.
--/
-theorem inj_incr (a b : NonEmptyString) : a < b ↔ a.val < b.val := by
-  constructor
-  intro h
-  simp at h
-  exact h
-  intro h
-  simp at h
-  exact h
-
-/--
-Ensures that `<` is transitive for `NonEmptyString`s.
--/
-theorem lt_trans {a b c: NonEmptyString} (h1 : a < b) (h2 : b < c) : a < c := by
-  rw [inj_incr]
-  rw [inj_incr] at h1 h2
-  exact String.lt_trans h1 h2
-
-instance : Trans (· < · : NonEmptyString → NonEmptyString → Prop) (· < ·) (· < ·) where
-  trans a b := lt_trans a b
-
-/--
 `decLt` is the decidable `<`-relation for non-empty strings, which
 allows for comparing two non-empty strings as in
 ```
@@ -313,12 +257,10 @@ def toDigit? : Char → Option Nat
   |  _  => none
 
 /--
-Is an alternative implementation to
-the standard function `Char.isDigit` that is
-based on `Char.toDigit?`.
+Is an alternative implementation to the standard function `Char.isDigit`
+that is based on `Char.toDigit?`.
 
-For proofs, this implementation is easier to
-handle - at least for me :-).
+For proofs, this implementation is easier to handle - at least for me :-).
 -/
 def isDigit' (c : Char) : Bool :=
   match c.toDigit? with
@@ -326,8 +268,8 @@ def isDigit' (c : Char) : Bool :=
   | none   => false
 
 /--
-Returns the digit as natural number for a
-given character that is known to be one of '0', '1' ... '9'
+Returns the digit as natural number for a given character that is known to
+be one of '0', '1' ... '9'
 -/
 def toDigit (c : Char) (h: c.isDigit') : Nat :=
   match g: c.toDigit? with
@@ -343,13 +285,12 @@ def toDigit! (c : Char) : Nat :=
   | some n => n
   | none   => panic! s!"'{c}' is not a digit!"
 
-
 end Char
 
 /--
-Returns `true` of the `NonEmptyString` that is provided as
-input only contains digits (for base ten). It is based on `Char.isDigit'`,
-so that it easier to work with it in proofs.
+Returns `true` if the `NonEmptyString` that is provided as input only contains
+digits (for base ten). It is based on `Char.isDigit'`, so that it easier to
+work with it in proofs.
 
 This is why I prefer it over, the following shorter implementation
 ```lean
@@ -365,15 +306,14 @@ def NonEmptyString.hasOnlyDigits (nes: NonEmptyString) : Bool :=
   helper nes.val.data
 
 /--
-Defines a subtype of `NonEmptyString` with the restriction
-that all characters must be digits.
+Defines a subtype of `NonEmptyString` with the restriction that all
+characters must be digits.
 -/
 def Digits : Type := { nes : NonEmptyString // nes.hasOnlyDigits}
 
 deriving instance DecidableEq, BEq, ToString, Repr for Digits
 
 namespace Digits
-
 
 /--
 Converts a non-empty string of digits to `Nat`.
@@ -415,19 +355,6 @@ def lt (a b : Digits) := a.toNat < b.toNat
 instance : LT Digits := ⟨lt⟩
 
 /--
-Asserts that `<` for `Digits` is a transitive relation.
--/
-theorem lt_trans {a b c: Digits} (h1 : a < b) (h2 : b < c) : a < c := by
-  simp only [instLT] at h1 h2
-  unfold lt at h1 h2
-  simp only [instLT]
-  unfold lt
-  exact Nat.lt_trans h1 h2
-
-instance : Trans (· < · : Digits → Digits → Prop) (· < ·) (· < ·) where
-  trans a b := lt_trans a b
-
-/--
 Decidable less-then for `Digits`.
 -/
 instance decidableLT (a b : Digits) : Decidable (a < b) :=
@@ -437,7 +364,6 @@ instance decidableLT (a b : Digits) : Decidable (a < b) :=
   else
     have g : ¬ lt a b := by unfold lt; exact h
     isFalse g
-
 
 /--
 Converts strings into `Digits` if possible - wrapped into a
@@ -450,8 +376,12 @@ def parse (str: String) : ParserResult Digits :=
     if h2 : nes.hasOnlyDigits then
       .success ⟨nes, h2⟩
     else
-      let pos := str.find (not ∘ Char.isDigit)
-      .failure {message := "input string contains non-digit characters", position := pos.byteIdx, input := str}
+      let pos := str.find (not ∘ Char.isDigit')
+      .failure {
+        message := "input string contains non-digit characters",
+        position := pos.byteIdx,
+        input := str
+      }
   else
     .failure {message := "input string must not be empty", position := 0, input := str}
 
@@ -472,8 +402,7 @@ def Digits.hasNoLeadingZeros (d: Digits) : Bool :=
   | _ => true
 
 /--
-Numeric identifiers are sequences of digits without leading
-zeros.
+Numeric identifiers are sequences of digits without leading zeros.
 
 Examples: Strings `"1234"` and `"0"` are valid numeric identifiers
 while `"01"` is not.
@@ -490,27 +419,14 @@ Convert a numeric identifier to a natural number.
 def toNat (n : NumIdent) : Nat := n.val.toNat
 
 /--
-Less-then for numerical identifiers, which is based
-on their value as natural number and not as strings.
+Less-then for numerical identifiers, which is based on their
+value as natural number and not as strings.
 -/
 def lt (a b : NumIdent) : Prop := a.toNat < b.toNat
 instance : LT NumIdent := ⟨lt⟩
 
 instance decidableLT (a b : NumIdent) : Decidable (a < b) :=
   Digits.decidableLT a.val b.val
-
-/--
-Ensures, that `<` on `NumIdent`s is a transitive relation.
--/
-theorem lt_trans {a b c: NumIdent} (h1 : a < b) (h2 : b < c) : a < c := by
-  simp only [instLT] at h1 h2
-  unfold lt at h1 h2
-  simp only [instLT]
-  unfold lt
-  exact Nat.lt_trans h1 h2
-
-instance : Trans (· < · : NumIdent → NumIdent → Prop) (· < ·) (· < ·) where
-  trans a b := lt_trans a b
 
 /--
 Parses strings into `NumIdent` wrapped into a `ParserResult`
@@ -534,37 +450,29 @@ end NumericIdentifiers
 
 section Identifiers
 
-
-/-
-TODO: Cleanup
+/--
+Checks if a character is allowed for identifiers, i.e. it is either
+an ASCII-character (upper or lowercase), a digit (for base 10) or '-'.
 -/
-def NonEmptyString.posOfNonIdentChar (s: NonEmptyString) : Nat :=
-  let rec helper : (List Char) → Nat → Nat
-  | chr::tail, pos => if chr.isAlphanum || chr = '-' then helper tail (pos + 1) else pos
-  | [], pos => pos
-
-  helper s.val.data 0
-
-#eval NonEmptyString.posOfNonIdentChar (⟨"0-+123", rfl⟩ : NonEmptyString)
-
-def NonEmptyString.isIdent' (s: NonEmptyString) : Bool := s.posOfNonIdentChar == s.val.length
-
-#eval NonEmptyString.isIdent' (⟨"0-aba123", rfl⟩ : NonEmptyString)
+def Char.isAllowedForIdentifier (chr : Char) : Bool :=
+  chr.isAlphanum || chr == '-'
 
 /--
-TODO: replace Bool × Nat with Bool
-Defines the fundamental base type for the different kinds of identifiers to ensure
+Checks if a `NonEmptyString` only contains character that are allowed for identifiers:
 "Identifiers MUST comprise only ASCII alphanumerics and hyphens [0-9A-Za-z-]."
 (see 9. in https://semver.org/).
 -/
-def NonEmptyString.isIdent (s: NonEmptyString) : Bool × Nat :=
-  let rec helper : (List Char) → Nat → Bool × Nat
-  | chr::tail, pos => if chr.isAlphanum || chr = '-' then helper tail (pos + 1) else (false, pos)
-  | [], pos => (true, pos)
+def NonEmptyString.isAllowedAsIdentifier (s: NonEmptyString) : Bool :=
+  let rec helper : (List Char) → Bool
+  | chr::tail => chr.isAllowedForIdentifier && helper tail
+  | [] => true
 
-  helper s.val.data 0
+  helper s.val.data
 
-def Ident : Type := { s: NonEmptyString // s.isIdent.fst }
+/--
+Defines the fundamental base type for the different kinds of identifiers.
+-/
+def Ident : Type := { s: NonEmptyString // s.isAllowedAsIdentifier }
 
 deriving instance DecidableEq, BEq, ToString, Repr for Ident
 
@@ -577,26 +485,21 @@ instance : LT Ident := ⟨lt⟩
 instance decidableLT (a b : Ident) : Decidable (a < b) :=
   NonEmptyString.decLt a.val b.val
 
-theorem lt_trans {a b c: Ident} (h1 : a < b) (h2 : b < c) : a < c := by
-  simp only [instLT] at h1 h2
-  unfold lt at h1 h2
-  simp only [instLT]
-  unfold lt
-  exact NonEmptyString.lt_trans h1 h2
-
-instance : Trans (· < · : Ident → Ident → Prop) (· < ·) (· < ·) where
-  trans a b := lt_trans a b
-
+/--
+Parses the given string and if it is not empty and contains only allowed
+characters, returns an `Ident` wrapped in a `ParserResult`.
+-/
 def parse (str : String) : ParserResult Ident :=
   match NonEmptyString.parse str  with
   | .failure e => .failure e
   | .success nes =>
-    let isi := nes.isIdent
-    match g : isi.fst with
+    match g : nes.isAllowedAsIdentifier with
     | true => .success ⟨nes, g⟩
-    | false => .failure {
+    | false =>
+      let pos := str.find (not ∘ Char.isAllowedForIdentifier)
+      .failure {
         message := "character is not in [0-9A-Za-z-]",
-        position := isi.snd,
+        position := pos.byteIdx,
         input := str
       }
 
@@ -605,16 +508,24 @@ end Identifiers
 
 section AlphaNumericIdentifiers
 
-def Ident.hasNonDigit (i: Ident) : Bool × Nat:=
-  let rec helper : (List Char) → Nat →  Bool × Nat
-    | chr::tail, pos => if chr.isAlpha || chr = '-' then (true, pos) else helper tail (pos + 1)
-    | [], pos => (false, pos)
-  helper i.val.val.data 0
+/--
+Returns `true` iff the character is allowed for identifiers but is not a digit,
+i.e. is in `[A-Za-z\-]`
+-/
+def Char.isAllowedAndNonDigit (chr: Char) : Bool := chr.isAlpha || chr = '-'
 
-def AlphanumIdent : Type := { i : Ident // i.hasNonDigit.fst }
+/--
+Returns `true` iff at least one characters in the given identifier is not a digit.
+-/
+def Ident.hasNonDigit (i: Ident) : Bool :=
+  let rec helper : (List Char) → Bool
+    | chr::tail => if chr.isAllowedAndNonDigit then true else helper tail
+    | [] => false
+  helper i.val.val.data
 
-instance : DecidableEq AlphanumIdent :=
-    Subtype.instDecidableEq
+def AlphanumIdent : Type := { i : Ident // i.hasNonDigit }
+
+instance : DecidableEq AlphanumIdent := Subtype.instDecidableEq
 
 deriving instance BEq, ToString, Repr for AlphanumIdent
 
@@ -627,25 +538,16 @@ instance : LT AlphanumIdent := ⟨lt⟩
 instance decidableLT (a b : AlphanumIdent) : Decidable (a < b) :=
   Ident.decidableLT a.val b.val
 
-theorem lt_trans {a b c: AlphanumIdent} (h1 : a < b) (h2 : b < c) : a < c := by
-  simp only [instLT] at h1 h2
-  unfold lt at h1 h2
-  simp only [instLT]
-  unfold lt
-  exact NonEmptyString.lt_trans h1 h2
-
-instance : Trans (· < · : AlphanumIdent → AlphanumIdent → Prop) (· < ·) (· < ·) where
-  trans a b := lt_trans a b
-
 def parse (str : String) : ParserResult AlphanumIdent :=
   match Ident.parse str with
   | .success id =>
-    let cnd := id.hasNonDigit
-    match g : cnd.fst with
-    | true => .success ⟨id,g⟩
-    | false => .failure {
+    if g : id.hasNonDigit then
+      .success ⟨id,g⟩
+    else
+      let pos := str.find (not ∘ Char.isAllowedAndNonDigit)
+      .failure {
         message := "alphanumeric identifier must contain a non-digit character",
-        position := cnd.snd,
+        position := pos.byteIdx,
         input := str
       }
   | .failure e => .failure e
@@ -736,43 +638,6 @@ def decLt (a b : PreRelIdent) : Decidable (a < b) :=
 
 instance : DecidableLT PreRelIdent := decLt
 
-theorem lt_trans {a b c: PreRelIdent} (h1 : a < b) (h2 : b < c) : a < c := by
-  simp only [instLT] at h1 h2; unfold lt at h1 h2
-  simp only [instLT]; unfold lt
-  cases ha: a with
-  | alphanumIdent aa =>
-    cases hb : b with
-    | alphanumIdent ba => --
-      cases hc : c with
-      | alphanumIdent ca =>
-        simp [ha, hb] at h1; simp [hb, hc] at h2; simp
-        exact AlphanumIdent.lt_trans h1 h2
-      | numIdent cn =>
-        simp [ha, hb] at h1; simp [hb, hc] at h2
-    | numIdent bn =>
-      cases hc : c with
-      | alphanumIdent ca
-      | numIdent cn =>
-        simp [ha, hb] at h1
-  | numIdent an =>
-    cases hb : b with
-    | alphanumIdent ba =>
-      cases hc : c with
-      | alphanumIdent ca =>
-        simp
-      | numIdent cn =>
-        simp [ha, hb] at h1; simp [hb, hc] at h2
-    | numIdent bn =>
-      cases hc : c with
-      | alphanumIdent ca =>
-        simp
-      | numIdent cn =>
-        simp [ha, hb] at h1; simp [hb, hc] at h2; simp
-        exact NumIdent.lt_trans h1 h2
-
-instance : Trans (· < · : PreRelIdent → PreRelIdent → Prop) (· < ·) (· < ·) where
-  trans a b := lt_trans a b
-
 def toString : PreRelIdent → String
   | alphanumIdent val => (ToString.toString val)
   | numIdent val => (ToString.toString val)
@@ -811,16 +676,6 @@ instance : LT DotSepPreRelIdents := ⟨lt⟩
 def decLt (a b : DotSepPreRelIdents) : Decidable (a < b) := NonEmptyList.decLt a b
 instance : DecidableLT DotSepPreRelIdents := decLt
 
-theorem lt_trans {a b c: DotSepPreRelIdents} (h1 : a < b) (h2 : b < c) : a < c := by
-  simp only [instLT] at h1 h2
-  unfold lt at h1 h2
-  simp only [instLT]
-  unfold lt
-  exact NonEmptyList.lt_trans h1 h2
-
-instance : Trans (· < · : DotSepPreRelIdents → DotSepPreRelIdents → Prop) (· < ·) (· < ·) where
-  trans a b := lt_trans a b
-
 def toString : DotSepPreRelIdents → String := NonEmptyList.toDotSeparatedString
 
 instance : ToString DotSepPreRelIdents := ⟨toString⟩
@@ -857,16 +712,6 @@ instance : LT VersionCore := ⟨lt⟩
 
 def decLt (v w : VersionCore) : Decidable (v < w) := v.toList.decidableLT w.toList
 instance : DecidableLT VersionCore := decLt
-
-theorem lt_trans {a b c: VersionCore} (h1 : a < b) (h2 : b < c) : a < c := by
-  simp only [instLT] at h1 h2
-  unfold lt at h1 h2
-  simp only [instLT]
-  unfold lt
-  exact List.lt_trans h1 h2
-
-instance : Trans (· < · : VersionCore → VersionCore → Prop) (· < ·) (· < ·) where
-  trans a b := lt_trans a b
 
 def parse (str : String) : ParserResult VersionCore  :=
   match NonEmptyList.parse str NumIdent.parse '.' with
@@ -909,36 +754,6 @@ def ltPreRelease (a b : Version) : Bool :=
   | some s, some t => (s.decLt t).decide
   | none, none | none, some _ => false
 
-theorem ltPreRelease_trans {a b c : Version} (h1: a.ltPreRelease b) (h2 : b.ltPreRelease c) :
-  (a.ltPreRelease c) := by
-  unfold ltPreRelease
-  unfold ltPreRelease at h1 h2
-  cases ha: a.preRelease with
-  | none =>
-    cases hb: b.preRelease with
-    | none =>
-      cases hc: c.preRelease with
-      | none => simp [ha, hb] at h1
-      | some _ => simp [ha, hb] at h1
-    | some _ =>
-      cases hc: c.preRelease with
-      | none => simp [ha, hb] at h1
-      | some _ => simp [ha, hb] at h1
-  | some ap =>
-    cases hb: b.preRelease with
-    | none =>
-      cases hc: c.preRelease with
-      | none => simp [hb, hc] at h2
-      | some _ => simp [hb, hc] at h2
-    | some bp =>
-      cases hc: c.preRelease with
-      | none => simp
-      | some cp =>
-        simp
-        simp [ha, hb] at h1
-        simp [hb, hc] at h2
-        exact DotSepPreRelIdents.lt_trans h1 h2
-
 def lt (v w : Version) : Prop :=
   (v.toVersionCore < w.toVersionCore) ∨
   (v.toVersionCore = w.toVersionCore ∧ (v.ltPreRelease w = true))
@@ -963,38 +778,6 @@ def decLt (v w : Version) : Decidable (v < w) :=
        isFalse h3
 
 instance : DecidableLT Version := decLt
-
-theorem lt_trans {a b c: Version} (h1 : a < b) (h2 : b < c) : a < c := by
-  simp only [instLT] at h1 h2
-  unfold lt at h1 h2
-  simp only [instLT]
-  unfold lt
-  cases h1 with
-  | inl h1l =>
-    cases h2 with
-    | inl h2l =>
-      have g: a.toVersionCore < c.toVersionCore := VersionCore.lt_trans h1l h2l
-      exact Or.inl g
-    | inr h2r =>
-      have ⟨h2rl,h2rr⟩ := h2r
-      have g: a.toVersionCore < c.toVersionCore := by rw [← h2rl]; exact h1l
-      exact Or.inl g
-  | inr h1r =>
-    cases h2 with
-    | inl h2l =>
-      have ⟨h1rl,h1rr⟩ := h1r
-      have g: a.toVersionCore < c.toVersionCore := by rw [h1rl]; exact h2l
-      exact Or.inl g
-    | inr h2r =>
-      right
-      have ⟨h1rl,h1rr⟩ := h1r
-      have ⟨h2rl,h2rr⟩ := h2r
-      have g : a.toVersionCore = c.toVersionCore := by rw [h1rl]; exact h2rl
-      have i : a.ltPreRelease c := ltPreRelease_trans h1rr h2rr
-      exact And.intro g i
-
-instance : Trans (· < · : Version → Version → Prop) (· < ·) (· < ·) where
-  trans a b := lt_trans a b
 
 def parseCorePreRel (str : String) :
   ParserResult (VersionCore × Option DotSepPreRelIdents) :=
@@ -1086,8 +869,7 @@ def isPossibleStart : (Option Char) → Char → Bool
   | none, d => d.isDigit
   | some c, d => (!c.isDigit) && (d.isDigit)
 
-def charIsValid (c : Char ) : Bool :=
-  c.isAlphanum || c == '-' || c == '.' || c == '+'
+def charIsValid (c : Char ) : Bool := c.isAlphanum || c == '-' || c == '.' || c == '+'
 
 end Version
 

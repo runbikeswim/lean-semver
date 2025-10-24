@@ -2,92 +2,280 @@
 Copyright (c) 2025 Stefan Kusterer. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 -/
-
 import SemVer.Basic
 
-/-
-def a : Digits := ⟨⟨"02", rfl⟩, rfl⟩
-def b : Digits := ⟨⟨"1", rfl⟩, rfl⟩
+section NonEmptyLists
+namespace NonEmptyList
 
-#eval a.val < b.val
-#eval b < a
-
-theorem inj_not_incr : ∃ a b : Digits, a.val < b.val ∧ b < a := by
-  let a : Digits := ⟨⟨"02", rfl⟩, rfl⟩
-  let b : Digits := ⟨⟨"1", rfl⟩, rfl⟩
-  have h1 : a.val < b.val := by simp [a,b]; decide
-  have na : 2 = a.toNat := by simp [a]; unfold toNat; simp; sorry
-  sorry
+/--
+Ensures that the _canonical injection_
+```
+fun {α : Type} (a : NonEmptyList α) => a.val
+```
+is strictly increasing under the respective `<`-relations.
 -/
-
-/-
-TODO: Remove if not needed
--/
-namespace Char
-
-def parseForNatBase10 : Char → ParserResult Nat
-  | '0' => .success 0
-  | '1' => .success 1
-  | '2' => .success 2
-  | '3' => .success 3
-  | '4' => .success 4
-  | '5' => .success 5
-  | '6' => .success 6
-  | '7' => .success 7
-  | '8' => .success 8
-  | '9' => .success 9
-  |  c  => .failure {message := s!"{c} is no digit", position := 0}
-
-def isDigitBase10 (chr : Char) : Bool := chr.parseForNatBase10.isSuccess
-
-def decIsDigitBase10 (chr : Char) : Decidable (chr.isDigitBase10) :=
-  if h: chr.parseForNatBase10.isSuccess then
-    isTrue (by simp [isDigitBase10, h])
-  else
-    isFalse (by simp [isDigitBase10, h])
-
-end Char
-
-/-
-TODO: Remove if not needed
--/
-namespace String
-
-def parseForNatBase10 (str : String) : ParserResult Nat :=
-
-  let rec listToNatBase10Helper : (List Char) → Nat → Nat → ParserResult Nat
-  | [], acc, _ => .success acc
-  | c::cs, acc, pos =>
-    match c.parseForNatBase10 with
-    | .success n => listToNatBase10Helper cs (acc * 10 + n) (pos + 1)
-    | .failure e => .failure {message := e.message, position := e.position}
-
-  match str with
-  | "" =>
-    .failure {
-      message := "input must not be empty"
-      position := 0,
-      input := str
-    }
-  | s  =>
-    match listToNatBase10Helper s.data 0 0 with
-    | .success n => .success n
-    | .failure e => .failure {message := e.message, position := e.position, input := str}
-
-def hasOnlyDigitsBase10 (str : String) : Bool := str.parseForNatBase10.isSuccess
-
-theorem lemma_parse_for_nat_base10 {str : String} :
-  str.hasOnlyDigitsBase10 → str.parseForNatBase10.isSuccess := by
+theorem inj_incr {α: Type} [LT α] (a b : NonEmptyList α) : a < b ↔ a.val < b.val := by
+  constructor
   intro h
-  unfold hasOnlyDigitsBase10 at h
+  simp at h
+  exact h
+  intro h
+  simp at h
   exact h
 
-def parseForNatBase10Guarded (str : String) (g : str.hasOnlyDigitsBase10): Nat :=
-  match h: str.parseForNatBase10 with
-  | .success n => n
-  | .failure _ => by
-      have i : str.parseForNatBase10.isSuccess := by apply lemma_parse_for_nat_base10 g
-      simp [ParserResult.isSuccess] at i
-      grind only
+/--
+Ensures, that `<` is a transitive relation.
+-/
+theorem lt_trans {α: Type} [LT α]
+  [i1 : Trans (· < · : α → α → Prop) (· < ·) (· < ·)]
+  {a b c: NonEmptyList α} (h1 : a < b) (h2 : b < c) : a < c := by
+  rw [inj_incr]
+  rw [inj_incr] at h1 h2
+  apply List.lt_trans h1 h2
 
-end String
+instance {α: Type} [LT α] [Trans (· < · : α → α → Prop) (· < ·) (· < ·)] :
+    Trans (· < · : NonEmptyList α → NonEmptyList α → Prop) (· < ·) (· < ·) where
+  trans a b := lt_trans a b
+
+end NonEmptyList
+end NonEmptyLists
+
+section NonEmptyStrings
+namespace NonEmptyString
+/--
+Assert that the _canonical injection_
+`fun (a : NonEmptyString) => a.val` is a strictly increasing function
+under the respective `<`-relations.
+-/
+theorem inj_incr (a b : NonEmptyString) : a < b ↔ a.val < b.val := by
+  constructor
+  intro h
+  simp at h
+  exact h
+  intro h
+  simp at h
+  exact h
+
+/--
+Ensures that `<` is transitive for `NonEmptyString`s.
+-/
+theorem lt_trans {a b c: NonEmptyString} (h1 : a < b) (h2 : b < c) : a < c := by
+  rw [inj_incr]
+  rw [inj_incr] at h1 h2
+  exact String.lt_trans h1 h2
+
+instance : Trans (· < · : NonEmptyString → NonEmptyString → Prop) (· < ·) (· < ·) where
+  trans a b := lt_trans a b
+
+end NonEmptyString
+end NonEmptyStrings
+
+section Digits
+namespace Digits
+
+/--
+Asserts that `<` for `Digits` is a transitive relation.
+-/
+theorem lt_trans {a b c: Digits} (h1 : a < b) (h2 : b < c) : a < c := by
+  simp only [instLT] at h1 h2
+  unfold lt at h1 h2
+  simp only [instLT]
+  unfold lt
+  exact Nat.lt_trans h1 h2
+
+instance : Trans (· < · : Digits → Digits → Prop) (· < ·) (· < ·) where
+  trans a b := lt_trans a b
+
+end Digits
+end Digits
+
+section NumericIdentifiers
+namespace NumIdent
+
+/--
+Ensures, that `<` on `NumIdent`s is a transitive relation.
+-/
+theorem lt_trans {a b c: NumIdent} (h1 : a < b) (h2 : b < c) : a < c := by
+  simp only [instLT] at h1 h2
+  unfold lt at h1 h2
+  simp only [instLT]
+  unfold lt
+  exact Nat.lt_trans h1 h2
+
+instance : Trans (· < · : NumIdent → NumIdent → Prop) (· < ·) (· < ·) where
+  trans a b := lt_trans a b
+
+end NumIdent
+end NumericIdentifiers
+
+section Identifiers
+namespace Ident
+
+theorem lt_trans {a b c: Ident} (h1 : a < b) (h2 : b < c) : a < c := by
+  simp only [instLT] at h1 h2
+  unfold lt at h1 h2
+  simp only [instLT]
+  unfold lt
+  exact NonEmptyString.lt_trans h1 h2
+
+instance : Trans (· < · : Ident → Ident → Prop) (· < ·) (· < ·) where
+  trans a b := lt_trans a b
+
+end Ident
+end Identifiers
+
+section AlphaNumericIdentifiers
+namespace AlphanumIdent
+
+theorem lt_trans {a b c: AlphanumIdent} (h1 : a < b) (h2 : b < c) : a < c := by
+  simp only [instLT] at h1 h2
+  unfold lt at h1 h2
+  simp only [instLT]
+  unfold lt
+  exact NonEmptyString.lt_trans h1 h2
+
+instance : Trans (· < · : AlphanumIdent → AlphanumIdent → Prop) (· < ·) (· < ·) where
+  trans a b := lt_trans a b
+
+end AlphanumIdent
+end AlphaNumericIdentifiers
+
+section PreReleaseIdentifiers
+namespace PreRelIdent
+
+theorem lt_trans {a b c: PreRelIdent} (h1 : a < b) (h2 : b < c) : a < c := by
+  simp only [instLT] at h1 h2; unfold lt at h1 h2
+  simp only [instLT]; unfold lt
+  cases ha: a with
+  | alphanumIdent aa =>
+    cases hb : b with
+    | alphanumIdent ba => --
+      cases hc : c with
+      | alphanumIdent ca =>
+        simp [ha, hb] at h1; simp [hb, hc] at h2; simp
+        exact AlphanumIdent.lt_trans h1 h2
+      | numIdent cn =>
+        simp [ha, hb] at h1; simp [hb, hc] at h2
+    | numIdent bn =>
+      cases hc : c with
+      | alphanumIdent ca
+      | numIdent cn =>
+        simp [ha, hb] at h1
+  | numIdent an =>
+    cases hb : b with
+    | alphanumIdent ba =>
+      cases hc : c with
+      | alphanumIdent ca =>
+        simp
+      | numIdent cn =>
+        simp [ha, hb] at h1; simp [hb, hc] at h2
+    | numIdent bn =>
+      cases hc : c with
+      | alphanumIdent ca =>
+        simp
+      | numIdent cn =>
+        simp [ha, hb] at h1; simp [hb, hc] at h2; simp
+        exact NumIdent.lt_trans h1 h2
+
+instance : Trans (· < · : PreRelIdent → PreRelIdent → Prop) (· < ·) (· < ·) where
+  trans a b := lt_trans a b
+
+end PreRelIdent
+
+namespace DotSepPreRelIdents
+
+theorem lt_trans {a b c: DotSepPreRelIdents} (h1 : a < b) (h2 : b < c) : a < c := by
+  simp only [instLT] at h1 h2
+  unfold lt at h1 h2
+  simp only [instLT]
+  unfold lt
+  exact NonEmptyList.lt_trans h1 h2
+
+instance : Trans (· < · : DotSepPreRelIdents → DotSepPreRelIdents → Prop) (· < ·) (· < ·) where
+  trans a b := lt_trans a b
+
+end DotSepPreRelIdents
+end PreReleaseIdentifiers
+
+section VersionCores
+namespace VersionCore
+
+theorem lt_trans {a b c: VersionCore} (h1 : a < b) (h2 : b < c) : a < c := by
+  simp only [instLT] at h1 h2
+  unfold lt at h1 h2
+  simp only [instLT]
+  unfold lt
+  exact List.lt_trans h1 h2
+
+instance : Trans (· < · : VersionCore → VersionCore → Prop) (· < ·) (· < ·) where
+  trans a b := lt_trans a b
+
+end VersionCore
+end VersionCores
+
+section Versions
+namespace Version
+
+theorem ltPreRelease_trans {a b c : Version} (h1: a.ltPreRelease b) (h2 : b.ltPreRelease c) :
+  (a.ltPreRelease c) := by
+  unfold ltPreRelease
+  unfold ltPreRelease at h1 h2
+  cases ha: a.preRelease with
+  | none =>
+    cases hb: b.preRelease with
+    | none =>
+      cases hc: c.preRelease with
+      | none => simp [ha, hb] at h1
+      | some _ => simp [ha, hb] at h1
+    | some _ =>
+      cases hc: c.preRelease with
+      | none => simp [ha, hb] at h1
+      | some _ => simp [ha, hb] at h1
+  | some ap =>
+    cases hb: b.preRelease with
+    | none =>
+      cases hc: c.preRelease with
+      | none => simp [hb, hc] at h2
+      | some _ => simp [hb, hc] at h2
+    | some bp =>
+      cases hc: c.preRelease with
+      | none => simp
+      | some cp =>
+        simp
+        simp [ha, hb] at h1
+        simp [hb, hc] at h2
+        exact DotSepPreRelIdents.lt_trans h1 h2
+
+theorem lt_trans {a b c: Version} (h1 : a < b) (h2 : b < c) : a < c := by
+  simp only [instLT] at h1 h2
+  unfold lt at h1 h2
+  simp only [instLT]
+  unfold lt
+  cases h1 with
+  | inl h1l =>
+    cases h2 with
+    | inl h2l =>
+      have g: a.toVersionCore < c.toVersionCore := VersionCore.lt_trans h1l h2l
+      exact Or.inl g
+    | inr h2r =>
+      have ⟨h2rl,h2rr⟩ := h2r
+      have g: a.toVersionCore < c.toVersionCore := by rw [← h2rl]; exact h1l
+      exact Or.inl g
+  | inr h1r =>
+    cases h2 with
+    | inl h2l =>
+      have ⟨h1rl,h1rr⟩ := h1r
+      have g: a.toVersionCore < c.toVersionCore := by rw [h1rl]; exact h2l
+      exact Or.inl g
+    | inr h2r =>
+      right
+      have ⟨h1rl,h1rr⟩ := h1r
+      have ⟨h2rl,h2rr⟩ := h2r
+      have g : a.toVersionCore = c.toVersionCore := by rw [h1rl]; exact h2rl
+      have i : a.ltPreRelease c := ltPreRelease_trans h1rr h2rr
+      exact And.intro g i
+
+instance : Trans (· < · : Version → Version → Prop) (· < ·) (· < ·) where
+  trans a b := lt_trans a b
+
+end Version
