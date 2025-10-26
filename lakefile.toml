@@ -1,7 +1,6 @@
 name = "lean-semver"
 version = "0.7.0"
 defaultTargets = ["lean-semver", "tests"]
-rev = "v4.23.0"
 
 [leanOptions]
 pp.unicode.fun = true # pretty-prints `fun a ↦ b`
@@ -13,14 +12,15 @@ maxSynthPendingDepth = 3
 [[require]]
 name = "mathlib"
 scope = "leanprover-community"
-rev = "v4.23.0"
+rev = "v4.24.0"
 
 [[lean_lib]]
 name = "SemVer"
+path = "SemVer"
 
 [[lean_exe]]
 name = "tests"
-root = "Test"
+root = "Tests"
 
 [[lean_exe]]
 name = "lean-semver"

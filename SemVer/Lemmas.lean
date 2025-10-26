@@ -10,24 +10,31 @@ namespace NonEmptyList
 /--
 Ensures that the _canonical injection_
 ```
-fun {α : Type} (a : NonEmptyList α) => a.val
+fun {α} a ↦ a.val : {α : Type} → NonEmptyList α → List α
 ```
 is strictly increasing under the respective `<`-relations.
 -/
+@[simp]
 theorem inj_incr {α: Type} [LT α] (a b : NonEmptyList α) : a < b ↔ a.val < b.val := by
   constructor
   intro h
+  simp only [instLT] at h
+  unfold lt at h
   simp at h
   exact h
   intro h
-  simp at h
+  simp only [instLT]
+  unfold lt
+  simp
   exact h
 
 /--
-Ensures, that `<` is a transitive relation.
+Asserts that `<` is a transitive relation in`NonEmptyList α` if the
+underlying `<` on `α` has the same property.
 -/
+@[simp]
 theorem lt_trans {α: Type} [LT α]
-  [i1 : Trans (· < · : α → α → Prop) (· < ·) (· < ·)]
+  [g : Trans (· < · : α → α → Prop) (· < ·) (· < ·)]
   {a b c: NonEmptyList α} (h1 : a < b) (h2 : b < c) : a < c := by
   rw [inj_incr]
   rw [inj_incr] at h1 h2
@@ -42,23 +49,30 @@ end NonEmptyLists
 
 section NonEmptyStrings
 namespace NonEmptyString
+
 /--
 Assert that the _canonical injection_
-`fun (a : NonEmptyString) => a.val` is a strictly increasing function
-under the respective `<`-relations.
+```
+fun a ↦ a.val : NonEmptyString → String
+```
+is a strictly increasing function under the respective `<`-relations.
 -/
+@[simp]
 theorem inj_incr (a b : NonEmptyString) : a < b ↔ a.val < b.val := by
   constructor
   intro h
-  simp at h
+  simp only [instLT] at h
+  unfold lt at h
   exact h
   intro h
-  simp at h
+  simp only [instLT]
+  unfold lt
   exact h
 
 /--
-Ensures that `<` is transitive for `NonEmptyString`s.
+Asserts that `<` is transitive on `NonEmptyString`.
 -/
+@[simp]
 theorem lt_trans {a b c: NonEmptyString} (h1 : a < b) (h2 : b < c) : a < c := by
   rw [inj_incr]
   rw [inj_incr] at h1 h2
@@ -74,8 +88,9 @@ section Digits
 namespace Digits
 
 /--
-Asserts that `<` for `Digits` is a transitive relation.
+Asserts that `<` is transitive on `Digits`.
 -/
+@[simp]
 theorem lt_trans {a b c: Digits} (h1 : a < b) (h2 : b < c) : a < c := by
   simp only [instLT] at h1 h2
   unfold lt at h1 h2
@@ -93,8 +108,9 @@ section NumericIdentifiers
 namespace NumIdent
 
 /--
-Ensures, that `<` on `NumIdent`s is a transitive relation.
+Ensures, that `<` is transitive on `NumIdent`.
 -/
+@[simp]
 theorem lt_trans {a b c: NumIdent} (h1 : a < b) (h2 : b < c) : a < c := by
   simp only [instLT] at h1 h2
   unfold lt at h1 h2
@@ -111,6 +127,10 @@ end NumericIdentifiers
 section Identifiers
 namespace Ident
 
+/--
+Ensures, that `<` is transitive on `Ident`.
+-/
+@[simp]
 theorem lt_trans {a b c: Ident} (h1 : a < b) (h2 : b < c) : a < c := by
   simp only [instLT] at h1 h2
   unfold lt at h1 h2
@@ -127,6 +147,10 @@ end Identifiers
 section AlphaNumericIdentifiers
 namespace AlphanumIdent
 
+/--
+Ensures, that `<` is transitive on `AlphanumIdent`.
+-/
+@[simp]
 theorem lt_trans {a b c: AlphanumIdent} (h1 : a < b) (h2 : b < c) : a < c := by
   simp only [instLT] at h1 h2
   unfold lt at h1 h2
@@ -143,6 +167,10 @@ end AlphaNumericIdentifiers
 section PreReleaseIdentifiers
 namespace PreRelIdent
 
+/--
+Ensures, that `<` is transitive on `PreRelIdent`.
+-/
+@[simp]
 theorem lt_trans {a b c: PreRelIdent} (h1 : a < b) (h2 : b < c) : a < c := by
   simp only [instLT] at h1 h2; unfold lt at h1 h2
   simp only [instLT]; unfold lt
@@ -184,6 +212,10 @@ end PreRelIdent
 
 namespace DotSepPreRelIdents
 
+/--
+Ensures, that `<` is transitive on `DotSepPreRelIdents`.
+-/
+@[simp]
 theorem lt_trans {a b c: DotSepPreRelIdents} (h1 : a < b) (h2 : b < c) : a < c := by
   simp only [instLT] at h1 h2
   unfold lt at h1 h2
@@ -200,6 +232,10 @@ end PreReleaseIdentifiers
 section VersionCores
 namespace VersionCore
 
+/--
+Ensures, that `<` is transitive on `VersionCore`.
+-/
+@[simp]
 theorem lt_trans {a b c: VersionCore} (h1 : a < b) (h2 : b < c) : a < c := by
   simp only [instLT] at h1 h2
   unfold lt at h1 h2
@@ -216,6 +252,10 @@ end VersionCores
 section Versions
 namespace Version
 
+/--
+Lemma asserting that `Version.ltPreRelease` is transitive.
+-/
+@[simp]
 theorem ltPreRelease_trans {a b c : Version} (h1: a.ltPreRelease b) (h2 : b.ltPreRelease c) :
   (a.ltPreRelease c) := by
   unfold ltPreRelease
@@ -246,6 +286,10 @@ theorem ltPreRelease_trans {a b c : Version} (h1: a.ltPreRelease b) (h2 : b.ltPr
         simp [hb, hc] at h2
         exact DotSepPreRelIdents.lt_trans h1 h2
 
+/--
+Ensures, that `<` is transitive on `Version`.
+-/
+@[simp]
 theorem lt_trans {a b c: Version} (h1 : a < b) (h2 : b < c) : a < c := by
   simp only [instLT] at h1 h2
   unfold lt at h1 h2

@@ -1,14 +1,18 @@
 /-
 Copyright (c) 2025 Stefan Kusterer. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
+
+This file refers to version 2.0.0 of the
+[Semantic Versioning Specification](https://semver.org/) which is published under
+[Creative Commons ― CC BY 3.0](https://creativecommons.org/licenses/by/3.0/)
+license.
 -/
 
 section ParserErrors
 
 /--
-A parser error is a structure that contains the error message and a number that
-is the position at which the interpretation of the input string was not
-possible anymore.
+Contains an error message and the position at which the interpretation
+of the input string was not possible anymore.
 -/
 structure ParserError where
   message : String
@@ -27,6 +31,11 @@ def toString (e : ParserError) : String :=
   | none => s!"error in position {e.position}: {e.message}"
 
 instance : ToString ParserError := ⟨toString⟩
+
+/--
+Defines a default with "unknown error" as message an implausible position
+for parser error.
+-/
 instance : Inhabited ParserError := ⟨{message := "unknown error", position := 42}⟩
 
 end ParserError
@@ -35,7 +44,7 @@ end ParserErrors
 section ParserResults
 
 /--
-A parser result holds either the value of the given type, if parsing was
+Holds either the value of the given type, if parsing was
 successful or a parser error in case of failure.
 -/
 inductive ParserResult (α : Type) where
@@ -44,15 +53,14 @@ inductive ParserResult (α : Type) where
 deriving Repr, BEq
 
 /--
-Defines a failure with "unknown error" as message an implausible position
-as default value for parser result.
+Defines a default for `ParserResult α` based on the default of `ParserError`.
 -/
 instance {α : Type} : Inhabited (ParserResult α) := ⟨.failure default⟩
 
 namespace ParserResult
 
 /--
-`isSuccess` is `true` iff the `ParserResult` contains a value of type `α`.
+Returns `true` iff the `ParserResult` contains a value of type `α`.
 -/
 def isSuccess {α : Type} (res : ParserResult α) : Bool :=
   match res with
@@ -60,7 +68,7 @@ def isSuccess {α : Type} (res : ParserResult α) : Bool :=
   | .failure _ => false
 
 /--
-`to?` converts a parser result into an optional value.
+Converts a parser result into an optional value.
 -/
 def to? {α : Type} (res : ParserResult α) : Option α :=
   match res with
@@ -68,7 +76,7 @@ def to? {α : Type} (res : ParserResult α) : Option α :=
   | .failure _ => none
 
 /--
-`to!` unwraps the value from a `.success` parser result and
+Unwraps the value from a `.success` parser result and
 panics if a `.failure` is provided.
 -/
 def to! {α : Type} [Inhabited α] (res : ParserResult α) : α :=
@@ -77,7 +85,7 @@ def to! {α : Type} [Inhabited α] (res : ParserResult α) : α :=
   | .failure e => panic s!"no parser result due to {e}"
 
 /--
-`toIO!` converts the value from a `.success` parser result
+Converts the value from a `.success` parser result
 into an term of `IO α` and throws an error, if a `.failure` is provided.
 -/
 def toIO! {α : Type} (res : ParserResult α) : IO α := do
@@ -91,9 +99,7 @@ end ParserResults
 section NonEmptyLists
 
 /--
-Non-empty lists are used to ensure that the list-like identifiers
-`dot-separated pre-release identifiers` and `dot-separated build identifiers`
-are not empty.
+Defines non-empty lists as subtype of `List`.
 -/
 def NonEmptyList (α : Type) : Type := {l: List α // !l.isEmpty}
 
@@ -110,7 +116,7 @@ def lt {α: Type} [LT α] (a b : NonEmptyList α) : Prop := a.val.lt b.val
 instance (α : Type) [LT α] : LT (NonEmptyList α) := ⟨lt⟩
 
 /--
-`decLt` is the decidable `<`-relation for non-empty lists.
+Decides if `<` holds true for two non-empty lists.
 -/
 def decLt {α: Type} [DecidableEq α] [LT α] [DecidableLT α] (a b : NonEmptyList α) :
   Decidable (a < b) := List.decidableLT a.val b.val
@@ -119,7 +125,7 @@ instance (α : Type) [DecidableEq α] [LT α] [DecidableLT α] :
   DecidableLT (NonEmptyList α) := decLt
 
 /--
-Provides an implementation of `repr` so that `#eval` can be used on non-empty lists.
+Provides a representation for a non empty list so that `#eval` can be used.
 -/
 def repr {α : Type} [Repr α] (a : NonEmptyList α) (n : Nat) : Std.Format := List.repr a.val n
 
@@ -179,7 +185,7 @@ end NonEmptyLists
 section NonEmptyStrings
 
 /--
-Defines non-empty strings as _base type_ for the different kinds of identifiers.
+Defines non-empty strings as subtype of `String`.
 
 They ensure that the requirement "Identifiers MUST NOT be empty." fulfilled that
 is stated as [item #9 in semver.org](https://semver.org/#spec-item-9).
@@ -234,7 +240,7 @@ Converts a character representing a digit for base ten
 to the natural number corresponding to this digit - for other
 characters `none` is returned.
 
-This implementation is better suited for proves compared to e.g.
+This implementation is seemingly better suited for proofs compared than e.g.
 ```lean
 def toDigit? (c: Char) : Option Nat :=
   if c.isDigit then
@@ -260,7 +266,7 @@ def toDigit? : Char → Option Nat
 Is an alternative implementation to the standard function `Char.isDigit`
 that is based on `Char.toDigit?`.
 
-For proofs, this implementation is easier to handle - at least for me :-).
+This implementation appears to be better suited for proofs than `Char.isDigit`.
 -/
 def isDigit' (c : Char) : Bool :=
   match c.toDigit? with
@@ -292,7 +298,7 @@ Returns `true` if the `NonEmptyString` that is provided as input only contains
 digits (for base ten). It is based on `Char.isDigit'`, so that it easier to
 work with it in proofs.
 
-This is why I prefer it over, the following shorter implementation
+Hence it is used here instead of shorter implementations like
 ```lean
 def NonEmptyString.hasOnlyDigits (nes: NonEmptyString) : Bool := nes.val.isNat
 ```
@@ -307,7 +313,19 @@ def NonEmptyString.hasOnlyDigits (nes: NonEmptyString) : Bool :=
 
 /--
 Defines a subtype of `NonEmptyString` with the restriction that all
-characters must be digits.
+characters must be digits of base ten.
+
+This is used for the definitions
+```text
+  <digits> ::= <digit>
+            | <digit> <digits>
+
+  <digit> ::= "0"
+            | <positive digit>
+
+  <positive digit> ::= "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9"
+```
+(see https://semver.org/#backusnaur-form-grammar-for-valid-semver-versions).
 -/
 def Digits : Type := { nes : NonEmptyString // nes.hasOnlyDigits}
 
@@ -322,7 +340,8 @@ Also here, shorter implementations exists like
 ```lean
 def toNat (nes: NonEmptyString) : Nat := nes.val.toNat!
 ```
-However, for direct use in proofs, I prefer this code.
+However, for direct use in proofs, this implementation appears
+as preferable.
 -/
 def toNat (d : Digits) : Nat :=
 
@@ -333,13 +352,13 @@ def toNat (d : Digits) : Nat :=
   helper d.val.val.data 0
 
 /--
-Less-then (`lt`) for digits, which is based on `Nat` (and not `String`)
+Less-then relation for digits, which is based on `Nat` (and not `String`)
 as defined in https://semver.org/ under 4.1:
 ```text
 Identifiers consisting of only digits are compared numerically.
 ```
 This means that the _canonical injection_ `fun (a : Digits) => a.val`
-is not a strictly increasing function as the following example shows:
+is **not** a strictly increasing function as the following example shows:
 ```lean
 def a : NonEmptyString := ⟨"23", rfl⟩
 def b : NonEmptyString := ⟨"123", rfl⟩
@@ -355,7 +374,7 @@ def lt (a b : Digits) := a.toNat < b.toNat
 instance : LT Digits := ⟨lt⟩
 
 /--
-Decidable less-then for `Digits`.
+Decidable _less-then_ for `Digits`.
 -/
 instance decidableLT (a b : Digits) : Decidable (a < b) :=
   if h: a.toNat < b.toNat then
@@ -366,7 +385,7 @@ instance decidableLT (a b : Digits) : Decidable (a < b) :=
     isFalse g
 
 /--
-Converts strings into `Digits` if possible - wrapped into a
+Converts strings to `Digits` if possible - wrapped into a
 `ParserResult`.
 -/
 def parse (str: String) : ParserResult Digits :=
@@ -391,7 +410,7 @@ end Digits
 section NumericIdentifiers
 
 /--
-Detect if a given term of type `Digits` has a leading zero.
+Detects if a given term of type `Digits` has a leading zero.
 
 https://semver.org/ forbids leading zeros for both, numbers
 in the version _core_ and numeric identifiers.
@@ -406,6 +425,14 @@ Numeric identifiers are sequences of digits without leading zeros.
 
 Examples: Strings `"1234"` and `"0"` are valid numeric identifiers
 while `"01"` is not.
+
+This is used for the definition
+```text
+  <numeric identifier> ::= "0"
+                        | <positive digit>
+                        | <positive digit> <digits>
+```
+(see https://semver.org/#backusnaur-form-grammar-for-valid-semver-versions).
 -/
 def NumIdent : Type := { d: Digits // d.hasNoLeadingZeros }
 
@@ -414,7 +441,7 @@ deriving instance DecidableEq, BEq, ToString, Repr for NumIdent
 namespace NumIdent
 
 /--
-Convert a numeric identifier to a natural number.
+Converts a numeric identifier to a natural number.
 -/
 def toNat (n : NumIdent) : Nat := n.val.toNat
 
@@ -452,15 +479,37 @@ section Identifiers
 
 /--
 Checks if a character is allowed for identifiers, i.e. it is either
-an ASCII-character (upper or lowercase), a digit (for base 10) or '-'.
+an letter (upper or lowercase), a digit (for base 10) or '-'.
+
+This is used for the definition
+```text
+  <identifier character> ::= <digit>
+                          | <non-digit>
+  <non-digit> ::= <letter>
+              | "-"
+
+  <digits> ::= <digit>
+            | <digit> <digits>
+
+  <digit> ::= "0"
+            | <positive digit>
+
+  <positive digit> ::= "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9"
+
+  <letter> ::= "A" | "B" | "C" | "D" | "E" | "F" | "G" | "H" | "I" | "J"
+             | "K" | "L" | "M" | "N" | "O" | "P" | "Q" | "R" | "S" | "T"
+             | "U" | "V" | "W" | "X" | "Y" | "Z" | "a" | "b" | "c" | "d"
+             | "e" | "f" | "g" | "h" | "i" | "j" | "k" | "l" | "m" | "n"
+             | "o" | "p" | "q" | "r" | "s" | "t" | "u" | "v" | "w" | "x"
+             | "y" | "z"
+```
+(see https://semver.org/#backusnaur-form-grammar-for-valid-semver-versions).
 -/
 def Char.isAllowedForIdentifier (chr : Char) : Bool :=
   chr.isAlphanum || chr == '-'
 
 /--
-Checks if a `NonEmptyString` only contains character that are allowed for identifiers:
-"Identifiers MUST comprise only ASCII alphanumerics and hyphens [0-9A-Za-z-]."
-(see 9. in https://semver.org/).
+Checks if a `NonEmptyString` only contains characters that are allowed for identifiers.
 -/
 def NonEmptyString.isAllowedAsIdentifier (s: NonEmptyString) : Bool :=
   let rec helper : (List Char) → Bool
@@ -510,12 +559,21 @@ section AlphaNumericIdentifiers
 
 /--
 Returns `true` iff the character is allowed for identifiers but is not a digit,
-i.e. is in `[A-Za-z\-]`
+i.e. is in `[A-Za-z\-]`.
+
+This is used for
+```text
+  <alphanumeric identifier> ::= <non-digit>
+                              | <non-digit> <identifier characters>
+                              | <identifier characters> <non-digit>
+                              | <identifier characters> <non-digit> <identifier characters>
+```
+(see https://semver.org/#backusnaur-form-grammar-for-valid-semver-versions).
 -/
 def Char.isAllowedAndNonDigit (chr: Char) : Bool := chr.isAlpha || chr = '-'
 
 /--
-Returns `true` iff at least one characters in the given identifier is not a digit.
+Returns `true` iff at least one character in the given identifier is not a digit.
 -/
 def Ident.hasNonDigit (i: Ident) : Bool :=
   let rec helper : (List Char) → Bool
@@ -538,6 +596,10 @@ instance : LT AlphanumIdent := ⟨lt⟩
 instance decidableLT (a b : AlphanumIdent) : Decidable (a < b) :=
   Ident.decidableLT a.val b.val
 
+/--
+Parses the given string and if it is a valid alphanumeric identifier,
+returns it wrapped in a `ParserResult`.
+-/
 def parse (str : String) : ParserResult AlphanumIdent :=
   match Ident.parse str with
   | .success id =>
@@ -557,6 +619,14 @@ end AlphaNumericIdentifiers
 
 section BuildIdentifiers
 
+/--
+Defines build-identifiers in accordance with
+```text
+  <build identifier> ::= <alphanumeric identifier>
+                      | <digits>
+```
+(see https://semver.org/#backusnaur-form-grammar-for-valid-semver-versions).
+-/
 inductive BuildIdent where
   | alphanumIdent (val : AlphanumIdent) : BuildIdent
   | digits (val : Digits) : BuildIdent
@@ -565,12 +635,19 @@ deriving instance DecidableEq, BEq, Repr for BuildIdent
 
 namespace BuildIdent
 
+/--
+Returns the string representation of a build identifier.
+-/
 def toString : BuildIdent → String
   | alphanumIdent val => (ToString.toString val)
   | digits val => (ToString.toString val)
 
 instance : ToString BuildIdent := ⟨toString⟩
 
+/--
+Parses the given string and if it is a valid build identifier,
+returns it wrapped in a `ParserResult`.
+-/
 def parse (str : String) : ParserResult BuildIdent :=
   match AlphanumIdent.parse str with
   | .success ani => .success (alphanumIdent ani)
@@ -585,18 +662,37 @@ def parse (str : String) : ParserResult BuildIdent :=
 
 end BuildIdent
 
+/--
+Defines dot-separated build identifiers as non-empty lists of `BuildIdent`s in accordance with
+```text
+  <dot-separated build identifiers> ::= <build identifier>
+                                    | <build identifier> "." <dot-separated build identifiers>
+```
+(see https://semver.org/#backusnaur-form-grammar-for-valid-semver-versions).
+-/
 def DotSepBuildIdents : Type := NonEmptyList BuildIdent
 
 deriving instance DecidableEq, BEq, Repr for DotSepBuildIdents
 
+/--
+Defines a default value for `DotSepBuildIdents` so that `to!`
+can be used on `ParserResult DotSepBuildIdents`.
+-/
 instance : Inhabited DotSepBuildIdents := ⟨[(BuildIdent.digits (⟨⟨"0", rfl⟩, rfl⟩: Digits))], rfl⟩
 
 namespace DotSepBuildIdents
 
+/--
+Returns the string representation of dot-separated build identifiers.
+-/
 def toString : DotSepBuildIdents → String := NonEmptyList.toDotSeparatedString
 
 instance : ToString DotSepBuildIdents := ⟨toString⟩
 
+/--
+Parses the given string and if it is a valid dot-separated build identifiers,
+retruns it wrapped in a `ParserResult`.
+-/
 def parse (str : String) : ParserResult DotSepBuildIdents :=
   NonEmptyList.parse str BuildIdent.parse '.'
 
@@ -606,6 +702,14 @@ end BuildIdentifiers
 
 section PreReleaseIdentifiers
 
+/--
+Defines pre-release identifiers in accordance with
+```text
+  <pre-release identifier> ::= <alphanumeric identifier>
+                            | <numeric identifier>
+```
+(see https://semver.org/#backusnaur-form-grammar-for-valid-semver-versions).
+-/
 inductive PreRelIdent where
   | alphanumIdent (val : AlphanumIdent) : PreRelIdent
   | numIdent (val : NumIdent) : PreRelIdent
@@ -614,7 +718,11 @@ deriving instance DecidableEq, BEq, Repr for PreRelIdent
 
 namespace PreRelIdent
 
-/- numeric identifiers always have lower precedence than alphanumeric identifiers -/
+/--
+Less-then for pre-release identifiers. Numeric identifiers
+always have lower precedence than alphanumeric (non-numeric)
+identifiers (see https://semver.org/, section 11.4.3).
+-/
 def lt (a b : PreRelIdent) : Prop :=
   match a, b with
   | alphanumIdent _, numIdent _ => False
@@ -624,6 +732,9 @@ def lt (a b : PreRelIdent) : Prop :=
 
 instance : LT PreRelIdent := ⟨lt⟩
 
+/--
+Decides if `<` holds true for two pre-release identifiers.
+-/
 def decLt (a b : PreRelIdent) : Decidable (a < b) :=
     match ha: a, hb: b with
   | alphanumIdent s, alphanumIdent t
@@ -638,12 +749,19 @@ def decLt (a b : PreRelIdent) : Decidable (a < b) :=
 
 instance : DecidableLT PreRelIdent := decLt
 
+/--
+Returns the string representation of a pre-release identifier.
+-/
 def toString : PreRelIdent → String
   | alphanumIdent val => (ToString.toString val)
   | numIdent val => (ToString.toString val)
 
 instance : ToString PreRelIdent := ⟨toString⟩
 
+/--
+Parses the given string and if it is a valid pre-release identifier, returns
+it wrapped in a `ParserResult`.
+-/
 def parse (str : String) : ParserResult PreRelIdent  :=
   match AlphanumIdent.parse str  with
   | .success val => .success (alphanumIdent val)
@@ -658,6 +776,14 @@ def parse (str : String) : ParserResult PreRelIdent  :=
 
 end PreRelIdent
 
+/--
+Defines dot-separated pre-release identifiers in accordance with
+```text
+  <dot-separated pre-release identifiers> ::= <pre-release identifier>
+                                        | <pre-release identifier> "." <dot-separated pre-release identifiers>
+```
+(see https://semver.org/#backusnaur-form-grammar-for-valid-semver-versions).
+-/
 def DotSepPreRelIdents : Type := NonEmptyList PreRelIdent
 
 deriving instance DecidableEq, BEq, Repr for DotSepPreRelIdents
@@ -665,6 +791,10 @@ instance : Inhabited DotSepPreRelIdents := ⟨[(PreRelIdent.numIdent ⟨⟨⟨"0
 
 namespace DotSepPreRelIdents
 
+/--
+Provides a representation for dot-separated pre-release identifiers
+so that `#eval` can be used.
+-/
 def repr (a : DotSepPreRelIdents) (n: Nat) : Std.Format :=
   List.repr a.val n
 
@@ -680,6 +810,10 @@ def toString : DotSepPreRelIdents → String := NonEmptyList.toDotSeparatedStrin
 
 instance : ToString DotSepPreRelIdents := ⟨toString⟩
 
+/--
+Parses the given string and if it is a valid dot-separated pre-release
+identifiers, returns it wrapped in a `ParserResult`.
+-/
 def parse (str : String) : ParserResult DotSepPreRelIdents  :=
   NonEmptyList.parse str PreRelIdent.parse '.'
 
@@ -689,6 +823,18 @@ end PreReleaseIdentifiers
 
 section VersionCores
 
+/--
+Defines the version _core_ in accordance with
+```text
+  <version core> ::= <major> "." <minor> "." <patch>
+  <major> ::= <numeric identifier>
+  <minor> ::= <numeric identifier>
+  <patch> ::= <numeric identifier>
+```
+(see https://semver.org/#backusnaur-form-grammar-for-valid-semver-versions).
+
+Version cores default to `1.0.0`.
+-/
 structure VersionCore where
   major : Nat := 1
   minor : Nat := 0
@@ -697,22 +843,41 @@ deriving DecidableEq, BEq, Repr, Inhabited
 
 namespace VersionCore
 
+/--
+Returns the string representation of a version core.
+-/
 def toString (a : VersionCore) : String := s!"{a.major}.{a.minor}.{a.patch}"
 
 instance : ToString VersionCore := ⟨toString⟩
 
+/--
+Returns the version core as list of three natural numbers.
+-/
 def toList (v : VersionCore) : List Nat := [v.major, v.minor, v.patch]
 
+/--
+Constructs a version core from a list of three natural numbers.
+-/
 def fromList (l : List Nat) (h : l.length == 3) : VersionCore :=
   match l with
   | [m,n,p] => {major := m, minor := n, patch := p}
 
+/--
+Less-then for version cores.
+-/
 def lt (v w : VersionCore) : Prop := v.toList < w.toList
 instance : LT VersionCore := ⟨lt⟩
 
+/--
+Decides if `<` holds true for two version cores.
+-/
 def decLt (v w : VersionCore) : Decidable (v < w) := v.toList.decidableLT w.toList
 instance : DecidableLT VersionCore := decLt
 
+/--
+Parses the given string and if it is a valid version core, returns it
+wrapped in a `ParserResult`.
+-/
 def parse (str : String) : ParserResult VersionCore  :=
   match NonEmptyList.parse str NumIdent.parse '.' with
   | .success l =>
@@ -732,6 +897,18 @@ end VersionCores
 
 section Versions
 
+/--
+Defines a full semantic version in accordance with
+```text
+  <version> ::= <version core>
+              | <version core> "-" <pre-release>
+              | <version core> "+" <build>
+              | <version core> "-" <pre-release> "+" <build>
+  <pre-release> ::= <dot-separated pre-release identifiers>
+  <build> ::= <dot-separated build identifiers>
+```
+(see https://semver.org/#backusnaur-form-grammar-for-valid-semver-versions).
+-/
 structure Version extends VersionCore where
   preRelease  : Option DotSepPreRelIdents := none
   build       : Option DotSepBuildIdents := none
@@ -739,6 +916,9 @@ deriving DecidableEq, BEq, Repr, Inhabited
 
 namespace Version
 
+/--
+Returns the string representation of a version.
+-/
 def toString (a : Version) : String :=
     match a.preRelease, a.build with
     | none, none => s!"{a.toVersionCore}"
@@ -748,18 +928,29 @@ def toString (a : Version) : String :=
 
 instance : ToString Version := ⟨toString⟩
 
+/--
+Helper function for comparing the parts of versions
+outside the version core.
+-/
 def ltPreRelease (a b : Version) : Bool :=
   match a.preRelease, b.preRelease with
   | some _, none => true
   | some s, some t => (s.decLt t).decide
   | none, none | none, some _ => false
 
+/--
+Less-then for versions in accordance with
+[section 11 of the SemVer specification](https://semver.org/#spec-item-11).
+-/
 def lt (v w : Version) : Prop :=
   (v.toVersionCore < w.toVersionCore) ∨
   (v.toVersionCore = w.toVersionCore ∧ (v.ltPreRelease w = true))
 
 instance : LT Version := ⟨lt⟩
 
+/--
+Decides if `<` holds true for two versions.
+-/
 def decLt (v w : Version) : Decidable (v < w) :=
   match v.toVersionCore.decLt w.toVersionCore with
   | isTrue h1 =>
@@ -779,6 +970,10 @@ def decLt (v w : Version) : Decidable (v < w) :=
 
 instance : DecidableLT Version := decLt
 
+/--
+Helper function that parses the version core and optional pre-release
+part of a version string.
+-/
 def parseCorePreRel (str : String) :
   ParserResult (VersionCore × Option DotSepPreRelIdents) :=
   match str.split (· == '-') with
@@ -801,6 +996,10 @@ def parseCorePreRel (str : String) :
             input := str
           }
 
+/--
+Parses the given string and if it is a valid version, returns it
+wrapped in a `ParserResult`.
+-/
 def parse (str : String) : ParserResult Version :=
   match str.split (· == '+') with
   | [] => panic "internal error - split returns empty list"
@@ -837,6 +1036,9 @@ def parse (str : String) : ParserResult Version :=
       input := str
     }
 
+/--
+Returns `true` if public API provided under this version is stable.
+-/
 def isStable (v: Version) : Bool :=
   match v with
   | { major := 0, minor := _, patch := _, preRelease := _, build := _ }
@@ -844,20 +1046,54 @@ def isStable (v: Version) : Bool :=
       => false
   | _ => true
 
+/--
+Returns a version that is the next major version based on the provided version.
+The returned version has no pre-release or build metadata.
+-/
 def nextMajor (v : Version) : Version := {major := v.major + 1}
+
+/--
+Returns a version that is the next minor version based on the provided version.
+The returned version has no pre-release or build metadata.
+-/
 def nextMinor (v : Version) : Version := {major := v.major, minor := v.minor + 1}
+
+/--
+Returns a version that is the next patch version based on the provided version.
+The returned version has no pre-release or build metadata.
+-/
 def nextPatch (v : Version) : Version := {major := v.major, minor := v.minor, patch := v.patch + 1}
 
+/--
+Returns a version that is the subsequent pre-release version based
+on the provided version and pre-release string.
+
+If the resulting version is not greater than the provided version, or if
+the pre-release string is invalid, `none` is returned.
+-/
 def subsequentPreRelease? (v : Version) (str : String) : Option Version :=
   match parse s!"{v.toVersionCore}-{str}" with
   | .success w => if v < w then w else none
   | .failure _ => none
 
+/--
+Returns a version that is the same as the provided version but with
+the pre-release part set to the provided string.
+
+If the resulting version is not greater than the provided version, or if
+the pre-release string is invalid, `none` is returned.
+-/
 def setPreRelease? (v: Version) (str : String) : Option Version :=
   match v with
   | { toVersionCore := c, preRelease := _ , build := _ } =>
     (parse s!"{c}-{str}").to?
 
+/--
+Returns a version that is the same as the provided version but with
+the build part set to the provided string.
+
+If the given string is not valid as build metadata, `none` is returned.
+-/
 def setBuild? (v: Version) (str : String) : Option Version :=
   match v with
   | { toVersionCore := c, preRelease := none, build := _ } =>
@@ -865,25 +1101,32 @@ def setBuild? (v: Version) (str : String) : Option Version :=
   | { toVersionCore := c, preRelease := some p, build := _ } =>
     (parse s!"{c}-{p}+{str}").to?
 
-def isPossibleStart : (Option Char) → Char → Bool
+/--
+Helper function that checks if a character can be the start of a version
+in a string, given the previous character (if any).
+-/
+def isPossibleStart (previous : Option Char) (current : Char) : Bool :=
+  match previous, current with
   | none, d => d.isDigit
   | some c, d => (!c.isDigit) && (d.isDigit)
 
-def charIsValid (c : Char ) : Bool := c.isAlphanum || c == '-' || c == '.' || c == '+'
-
 end Version
 
-namespace VersionCore
+/--
+Helper function that checks if a character is valid in a version string.
+-/
+def Char.isValidForVersion (c : Char ) : Bool := c.isAllowedForIdentifier || c == '.' || c == '+'
 
-def addPreRelease? (c : VersionCore) (suffix : String) : Option Version :=
+def VersionCore.addPreRelease? (c : VersionCore) (suffix : String) : Option Version :=
   (Version.parse s!"{c}-{suffix}").to?
-
-end VersionCore
 
 end Versions
 
 section Extraction
 
+/--
+Helper that cuts off the prefix of a string that cannot be part of a version.
+-/
 def cutOffPrefix (ch : Option Char) (str: String) : String :=
 
   let rec helper : (Option Char) → (List Char) → (List Char)
@@ -896,6 +1139,9 @@ def cutOffPrefix (ch : Option Char) (str: String) : String :=
 
   String.mk ((helper ch) str.data)
 
+/--
+Extracts all versions that are contained in a given string.
+-/
 def extractVersions (str: String) : List Version :=
 
   let rec helper : List String → List Version
@@ -906,6 +1152,6 @@ def extractVersions (str: String) : List Version :=
       | .success v => v::(helper tail)
       | .failure _ => helper tail
 
-  helper (str.split (!Version.charIsValid ·))
+  helper (str.split (not ∘ Char.isValidForVersion))
 
 end Extraction
