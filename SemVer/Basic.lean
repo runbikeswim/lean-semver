@@ -2,10 +2,8 @@
 Copyright (c) 2025 Stefan Kusterer. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 
-This file refers to version 2.0.0 of the
-[Semantic Versioning Specification](https://semver.org/) which is published under
-[Creative Commons ― CC BY 3.0](https://creativecommons.org/licenses/by/3.0/)
-license.
+This file refers to version 2.0.0 of Semantic Versioning (https://semver.org)
+which is published under Creative Commons ― CC BY 3.0 license.
 -/
 
 section ParserErrors
@@ -116,7 +114,7 @@ def lt {α: Type} [LT α] (a b : NonEmptyList α) : Prop := a.val.lt b.val
 instance (α : Type) [LT α] : LT (NonEmptyList α) := ⟨lt⟩
 
 /--
-Decides if `<` holds true for two non-empty lists.
+Decidable _less-then_ for `NonEmptyList`.
 -/
 def decLt {α: Type} [DecidableEq α] [LT α] [DecidableLT α] (a b : NonEmptyList α) :
   Decidable (a < b) := List.decidableLT a.val b.val
@@ -376,7 +374,7 @@ instance : LT Digits := ⟨lt⟩
 /--
 Decidable _less-then_ for `Digits`.
 -/
-instance decidableLT (a b : Digits) : Decidable (a < b) :=
+def decLt (a b : Digits) : Decidable (a < b) :=
   if h: a.toNat < b.toNat then
     have g : lt a b := by unfold lt; exact h
     isTrue g
@@ -384,6 +382,7 @@ instance decidableLT (a b : Digits) : Decidable (a < b) :=
     have g : ¬ lt a b := by unfold lt; exact h
     isFalse g
 
+instance decidableLT (a b : Digits) : Decidable (a < b) := decLt a b
 /--
 Converts strings to `Digits` if possible - wrapped into a
 `ParserResult`.
@@ -452,8 +451,12 @@ value as natural number and not as strings.
 def lt (a b : NumIdent) : Prop := a.toNat < b.toNat
 instance : LT NumIdent := ⟨lt⟩
 
-instance decidableLT (a b : NumIdent) : Decidable (a < b) :=
-  Digits.decidableLT a.val b.val
+/--
+Decidable _less-then_ for `NumIdent`.
+-/
+def decLt (a b : NumIdent) : Decidable (a < b) := Digits.decLt a.val b.val
+
+instance decidableLT (a b : NumIdent) : Decidable (a < b) := decLt a b
 
 /--
 Parses strings into `NumIdent` wrapped into a `ParserResult`
@@ -531,8 +534,12 @@ def lt (a b : Ident) : Prop := a.val < b.val
 
 instance : LT Ident := ⟨lt⟩
 
-instance decidableLT (a b : Ident) : Decidable (a < b) :=
-  NonEmptyString.decLt a.val b.val
+/--
+Decidable _less-then_ for `Ident`.
+-/
+def decLt (a b : Ident) : Decidable (a < b) := NonEmptyString.decLt a.val b.val
+
+instance decidableLT (a b : Ident) : Decidable (a < b) := decLt a b
 
 /--
 Parses the given string and if it is not empty and contains only allowed
@@ -593,8 +600,13 @@ def lt (a b : AlphanumIdent) : Prop := a.val < b.val
 
 instance : LT AlphanumIdent := ⟨lt⟩
 
-instance decidableLT (a b : AlphanumIdent) : Decidable (a < b) :=
-  Ident.decidableLT a.val b.val
+/--
+Decidable _less-then_ for `AlphanumIdent`.
+-/
+def decLt (a b : AlphanumIdent) : Decidable (a < b) :=
+  Ident.decLt a.val b.val
+
+instance decidableLT (a b : AlphanumIdent) : Decidable (a < b) := decLt a b
 
 /--
 Parses the given string and if it is a valid alphanumeric identifier,
@@ -733,7 +745,7 @@ def lt (a b : PreRelIdent) : Prop :=
 instance : LT PreRelIdent := ⟨lt⟩
 
 /--
-Decides if `<` holds true for two pre-release identifiers.
+Decidable _less-then_ for `PreRelIdent`.
 -/
 def decLt (a b : PreRelIdent) : Decidable (a < b) :=
     match ha: a, hb: b with
@@ -803,7 +815,11 @@ instance : Repr DotSepPreRelIdents := ⟨repr⟩
 def lt (a b : DotSepPreRelIdents) : Prop := NonEmptyList.lt a b
 instance : LT DotSepPreRelIdents := ⟨lt⟩
 
+/--
+Decidable _less-then_ for `DotSepPreRelIdents`.
+-/
 def decLt (a b : DotSepPreRelIdents) : Decidable (a < b) := NonEmptyList.decLt a b
+
 instance : DecidableLT DotSepPreRelIdents := decLt
 
 def toString : DotSepPreRelIdents → String := NonEmptyList.toDotSeparatedString

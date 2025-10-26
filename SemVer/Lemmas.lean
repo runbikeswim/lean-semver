@@ -2,6 +2,7 @@
 Copyright (c) 2025 Stefan Kusterer. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 -/
+
 import SemVer.Basic
 
 section NonEmptyLists
@@ -85,8 +86,32 @@ end NonEmptyString
 end NonEmptyStrings
 
 section Digits
-namespace Digits
 
+def Char.decIsDigit (c : Char) (n : Nat) : Decidable (c.toDigit? = some n ) :=
+  match h : c.toDigit? with
+  | some m =>
+    if g: m = n then
+      isTrue (by simp [g])
+    else
+      isFalse (by simp; exact g)
+  | none => isFalse (by simp)
+
+#eval Char.decIsDigit '0' 0 -- isTrue _
+#eval Char.decIsDigit '1' 0 -- isFalse _
+#eval Char.decIsDigit 'a' 0 -- isFalse _
+
+theorem toDigit?_eq_toNat {c : Char} : c.toDigit? = some c.toNat := by
+  sorry
+
+theorem isDigit_imps_eq {c : Char} : c.isDigit' ↔ c.isDigit := by
+  constructor
+  intro h
+  cases g : c.toDigit? with
+  | none => unfold Char.toDigit? at g; sorry
+  | some d => sorry
+  sorry
+
+namespace Digits
 /--
 Asserts that `<` is transitive on `Digits`.
 -/
