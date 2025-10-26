@@ -7,11 +7,13 @@
    "level": "trace"}],
  "inputs":
  [["/home/stefan/lean-semver/.lake/packages/doc-gen4/.lake/build/bin/doc-gen4",
-   "7950710533227321825"],
-  ["<nil>", "1383784361690032856"],
+   "8434970873667844289"],
+  ["<nil>", "6748611221465965550"],
   ["<collection>",
    [["/home/stefan/lean-semver/docbuild/.lake/build/doc/SemVer/Basic.html",
-     "845648055429390886"],
+     "7931731633433155640"],
+    ["/home/stefan/lean-semver/docbuild/.lake/build/doc/SemVer/Lemmas.html",
+     "230915826830322721"],
     ["/home/stefan/lean-semver/docbuild/.lake/build/doc/SemVer.html",
-     "5721165230184909991"]]]],
- "depHash": "656232532371267326"}
+     "6567849612403131817"]]]],
+ "depHash": "17836443712680979216"}

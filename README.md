@@ -29,17 +29,23 @@ lake exe lean-semver
 
 ## How to use it
 
+### As Library
+
+Please refer to [this](https://runbikeswim.github.io/lean-semver/SemVer/Basic.html) page for the documentation of the library.
+
+### As Executable
+
 The program prompts you to enter two version identifiers. Based on that, it prints some text to the console.
 
 The expression in the last line, indicates if the version entered first is less than the second one, based on the 
 precedence rules defined by semantic versioning. 
 
-### Examples 
+#### Examples 
 
 The following two examples show the out put of program `lean-semver` and user input 
 (after `-->` for the first and after `->` for the second prompt).
 
-#### Example 1
+##### Example 1
 
 ```text
 please enter the first version identifier --> 1.1.2-alpha.beta.gamma.2+2025-09-07.17-03-42.0000
@@ -62,7 +68,7 @@ for the precedence of the first and second version, the following is true:
     1.1.2-alpha.beta.gamma.2+2025-09-07.17-03-42.0000 < 1.1.2-alpha.beta.gamma.10+2025-09-07.16-23-57.0001
 ```
 
-#### Example 2
+##### Example 2
 
 ```text
 please enter the first version identifier --> 1.1.2-alpha.beta.gamma.2+2025-09-07.16-23-57.0001
