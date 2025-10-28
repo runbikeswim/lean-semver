@@ -11,9 +11,9 @@
   ["<nil>", "6748611221465965550"],
   ["<collection>",
    [["/home/stefan/lean-semver/docbuild/.lake/build/doc/SemVer/Basic.html",
-     "16924777306087930200"],
+     "12414662217015333125"],
     ["/home/stefan/lean-semver/docbuild/.lake/build/doc/SemVer/Lemmas.html",
-     "5994442020009681328"],
+     "17361272379326371316"],
     ["/home/stefan/lean-semver/docbuild/.lake/build/doc/SemVer.html",
-     "7857505830572844293"]]]],
- "depHash": "12590901629452278282"}
+     "1252639671028097759"]]]],
+ "depHash": "16703588482020793899"}

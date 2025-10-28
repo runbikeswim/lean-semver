@@ -109,7 +109,7 @@ section NumericIdentifiers
 namespace NumIdent
 
 /--
-Ensures, that `<` is transitive on `NumIdent`.
+Ensures that `<` is transitive on `NumIdent`.
 -/
 @[simp]
 theorem lt_trans {a b c: NumIdent} (h1 : a < b) (h2 : b < c) : a < c := by
@@ -129,7 +129,7 @@ section Identifiers
 namespace Ident
 
 /--
-Ensures, that `<` is transitive on `Ident`.
+Ensures that `<` is transitive on `Ident`.
 -/
 @[simp]
 theorem lt_trans {a b c: Ident} (h1 : a < b) (h2 : b < c) : a < c := by
@@ -149,7 +149,7 @@ section AlphaNumericIdentifiers
 namespace AlphanumIdent
 
 /--
-Ensures, that `<` is transitive on `AlphanumIdent`.
+Ensures that `<` is transitive on `AlphanumIdent`.
 -/
 @[simp]
 theorem lt_trans {a b c: AlphanumIdent} (h1 : a < b) (h2 : b < c) : a < c := by
@@ -169,7 +169,7 @@ section PreReleaseIdentifiers
 namespace PreRelIdent
 
 /--
-Ensures, that `<` is transitive on `PreRelIdent`.
+Ensures that `<` is transitive on `PreRelIdent`.
 -/
 @[simp]
 theorem lt_trans {a b c: PreRelIdent} (h1 : a < b) (h2 : b < c) : a < c := by
@@ -214,7 +214,7 @@ end PreRelIdent
 namespace DotSepPreRelIdents
 
 /--
-Ensures, that `<` is transitive on `DotSepPreRelIdents`.
+Ensures that `<` is transitive on `DotSepPreRelIdents`.
 -/
 @[simp]
 theorem lt_trans {a b c: DotSepPreRelIdents} (h1 : a < b) (h2 : b < c) : a < c := by
@@ -234,7 +234,7 @@ section VersionCores
 namespace VersionCore
 
 /--
-Ensures, that `<` is transitive on `VersionCore`.
+Ensures that `<` is transitive on `VersionCore`.
 -/
 @[simp]
 theorem lt_trans {a b c: VersionCore} (h1 : a < b) (h2 : b < c) : a < c := by
@@ -288,7 +288,7 @@ theorem ltPreRelease_trans {a b c : Version} (h1: a.ltPreRelease b) (h2 : b.ltPr
         exact DotSepPreRelIdents.lt_trans h1 h2
 
 /--
-Ensures, that `<` is transitive on `Version`.
+Ensures that `<` is transitive on `Version`.
 -/
 @[simp]
 theorem lt_trans {a b c: Version} (h1 : a < b) (h2 : b < c) : a < c := by
