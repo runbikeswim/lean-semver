@@ -87,30 +87,6 @@ end NonEmptyStrings
 
 section Digits
 
-def Char.decIsDigit (c : Char) (n : Nat) : Decidable (c.toDigit? = some n ) :=
-  match h : c.toDigit? with
-  | some m =>
-    if g: m = n then
-      isTrue (by simp [g])
-    else
-      isFalse (by simp; exact g)
-  | none => isFalse (by simp)
-
-#eval Char.decIsDigit '0' 0 -- isTrue _
-#eval Char.decIsDigit '1' 0 -- isFalse _
-#eval Char.decIsDigit 'a' 0 -- isFalse _
-
-theorem toDigit?_eq_toNat {c : Char} : c.toDigit? ≠ none → c.toDigit? = some c.toNat := by
-  sorry
-
-theorem isDigit_imps_eq {c : Char} : c.isDigit' ↔ c.isDigit := by
-  constructor
-  intro h
-  cases g : c.toDigit? with
-  | none => unfold Char.toDigit? at g; sorry
-  | some d => sorry
-  sorry
-
 namespace Digits
 /--
 Asserts that `<` is transitive on `Digits`.
