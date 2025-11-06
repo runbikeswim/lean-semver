@@ -748,7 +748,7 @@ instance : LT PreRelIdent := ⟨lt⟩
 Decidable _less-then_ for `PreRelIdent`.
 -/
 def decLt (a b : PreRelIdent) : Decidable (a < b) :=
-    match ha: a, hb: b with
+  match ha: a, hb: b with
   | alphanumIdent s, alphanumIdent t
   | numIdent s, numIdent t =>
       if h: s < t then isTrue h else isFalse h
