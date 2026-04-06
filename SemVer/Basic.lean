@@ -11,8 +11,24 @@ which is published under Creative Commons ― CC BY 3.0 license.
 
 -/
 
-section ParserErrors
+section Supplementary
 
+namespace String.Slice
+
+def getPrefix (s : String.Slice) : String.Slice :=
+  have : s.str.startPos ≤ s.startInclusive := by
+    simp only [String.Pos.startPos_le]
+  s.str.slice s.str.startPos s.startInclusive this
+
+def getSuffix (s : String.Slice) : String.Slice :=
+  have : s.endExclusive ≤ s.str.endPos := String.Pos.le_endPos s.endExclusive
+  s.str.slice s.endExclusive s.str.endPos this
+
+end String.Slice
+
+end Supplementary
+
+section ParserErrors
 /-
 `String.Slice` has no `Repr` and without it, `deriving Repr` cant work in the definition of `ParserError`
 -/
@@ -29,19 +45,6 @@ structure ParserError where
   input: Option String.Slice := none
 deriving Repr, BEq
 
-def getSlicePrefix (s : String.Slice) : String.Slice :=
-  have : s.str.startPos ≤ s.startInclusive := by
-    simp only [String.Pos.startPos_le]
-  s.str.slice s.str.startPos s.startInclusive this
-
-def getSliceSuffix (s : String.Slice) : String.Slice :=
-  have : s.endExclusive ≤ s.str.endPos := String.Pos.le_endPos s.endExclusive
-  s.str.slice s.endExclusive s.str.endPos this
-
-def getSliceWithSuffix (s : String.Slice) : String.Slice :=
-  have : s.startInclusive ≤ s.str.endPos := String.Pos.le_endPos s.startInclusive
-  s.str.slice s.startInclusive s.str.endPos this
-
 namespace ParserError
 
 /--
@@ -49,7 +52,7 @@ Returns a formatted string that contains the error message and position.
 -/
 def toString (e : ParserError) : String :=
   match e.input with
-  | some slice => s!"error in '{slice}' (prefix: '{getSlicePrefix slice}', suffix: '{getSliceSuffix slice}'): {e.message}"
+  | some slice => s!"error in '{slice}' (prefix: '{slice.getPrefix}', suffix: '{slice.getSuffix}'): {e.message}"
   | none => e.message
 
 instance : ToString ParserError := ⟨toString⟩
@@ -1002,24 +1005,22 @@ part of a version string.
 -/
 def parseCorePreRel (s : String.Slice) :
   ParserResult (VersionCore × Option DotSepPreRelIdents) :=
-  match (s.split '-').toList with
-  | [] => panic "internal error - split returns empty list"
-  | core_str::tail =>
-    let core_res := VersionCore.parse core_str
-    match core_res with
-    | .failure e => .failure e
-    | .success core =>
-      match tail with
-      | [] => .success (core, none)
-      | t::_ =>
-        let pre_rel_slice := getSliceWithSuffix t
-        match DotSepPreRelIdents.parse pre_rel_slice with
-        | .success pre_rel => .success (core, pre_rel)
-        | .failure e =>
-          .failure {
-            message := e.message,
-            input := pre_rel_slice
-          }
+  let minus_pos := s.find (· == '-')
+  let core_res := VersionCore.parse (s.sliceTo minus_pos)
+  match core_res with
+  | .failure e => .failure e
+  | .success core =>
+    if g : minus_pos = s.endPos then
+      .success (core, none)
+    else
+      let pre_rel_slice := s.sliceFrom (minus_pos.next g)
+      match DotSepPreRelIdents.parse pre_rel_slice with
+      | .success pre_rel => .success (core, pre_rel)
+      | .failure e =>
+        .failure {
+          message := e.message,
+          input := pre_rel_slice
+        }
 
 /--
 Parses the given string and if it is a valid version, returns it

@@ -245,19 +245,19 @@ theorem lt_trans {a b c: Version} (h1 : a < b) (h2 : b < c) : a < c := by
       have g: a.toVersionCore < c.toVersionCore := VersionCore.lt_trans h1l h2l
       exact Or.inl g
     | inr h2r =>
-      have ⟨h2rl,h2rr⟩ := h2r
+      have ⟨h2rl, h2rr⟩ := h2r
       have g: a.toVersionCore < c.toVersionCore := by rw [← h2rl]; exact h1l
       exact Or.inl g
   | inr h1r =>
     cases h2 with
     | inl h2l =>
-      have ⟨h1rl,h1rr⟩ := h1r
+      have ⟨h1rl, h1rr⟩ := h1r
       have g: a.toVersionCore < c.toVersionCore := by rw [h1rl]; exact h2l
       exact Or.inl g
     | inr h2r =>
       right
-      have ⟨h1rl,h1rr⟩ := h1r
-      have ⟨h2rl,h2rr⟩ := h2r
+      have ⟨h1rl, h1rr⟩ := h1r
+      have ⟨h2rl, h2rr⟩ := h2r
       have g : a.toVersionCore = c.toVersionCore := by rw [h1rl]; exact h2rl
       have i : a.ltPreRelease c := ltPreRelease_trans h1rr h2rr
       exact And.intro g i

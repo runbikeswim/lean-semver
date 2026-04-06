@@ -262,6 +262,7 @@ def tst_03 : Version := {
     preRelease := some pre_03,
     build := some bld_03
   }
+
 #eval expect_eq (Version.parse in_03).to! tst_03 true
 
 #eval expect_failure (Version.parse "1.03.3") true
@@ -306,9 +307,7 @@ def _07 := invalid_version_strings.map fun s: String => Version.parse s
 #eval expect_eq (Version.parse "1.10.1-alpha1+build.00.11.22").to!.isStable false true
 #eval expect_eq (Version.parse "1.10.1").to!.isStable true true
 
-#print "... all tests passed!"
-
 end Tests
 
 def main : IO Unit := do
-  IO.println "Good Bye!"
+  IO.println "finished!"
