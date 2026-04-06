@@ -18,16 +18,10 @@ is strictly increasing under the respective `<`-relations.
 @[simp]
 theorem inj_incr {α: Type} [LT α] (a b : NonEmptyList α) : a < b ↔ a.val < b.val := by
   constructor
-  intro h
-  simp only [instLT] at h
-  unfold lt at h
-  simp at h
-  exact h
-  intro h
-  simp only [instLT]
-  unfold lt
-  simp
-  exact h
+  · intro h
+    exact h
+  · intro h
+    exact h
 
 /--
 Asserts that `<` is a transitive relation in`NonEmptyList α` if the
@@ -42,7 +36,7 @@ theorem lt_trans {α: Type} [LT α]
   apply List.lt_trans h1 h2
 
 instance {α: Type} [LT α] [Trans (· < · : α → α → Prop) (· < ·) (· < ·)] :
-    Trans (· < · : NonEmptyList α → NonEmptyList α → Prop) (· < ·) (· < ·) where
+  Trans (· < · : NonEmptyList α → NonEmptyList α → Prop) (· < ·) (· < ·) where
   trans a b := lt_trans a b
 
 end NonEmptyList
@@ -61,14 +55,10 @@ is a strictly increasing function under the respective `<`-relations.
 @[simp]
 theorem inj_incr (a b : NonEmptyString) : a < b ↔ a.val < b.val := by
   constructor
-  intro h
-  simp only [instLT] at h
-  unfold lt at h
-  exact h
-  intro h
-  simp only [instLT]
-  unfold lt
-  exact h
+  · intro h
+    exact h
+  · intro h
+    exact h
 
 /--
 Asserts that `<` is transitive on `NonEmptyString`.
@@ -92,12 +82,7 @@ namespace Digits
 Asserts that `<` is transitive on `Digits`.
 -/
 @[simp]
-theorem lt_trans {a b c: Digits} (h1 : a < b) (h2 : b < c) : a < c := by
-  simp only [instLT] at h1 h2
-  unfold lt at h1 h2
-  simp only [instLT]
-  unfold lt
-  exact Nat.lt_trans h1 h2
+theorem lt_trans {a b c: Digits} (h1 : a < b) (h2 : b < c) : a < c := Nat.lt_trans h1 h2
 
 instance : Trans (· < · : Digits → Digits → Prop) (· < ·) (· < ·) where
   trans a b := lt_trans a b
@@ -112,12 +97,7 @@ namespace NumIdent
 Ensures that `<` is transitive on `NumIdent`.
 -/
 @[simp]
-theorem lt_trans {a b c: NumIdent} (h1 : a < b) (h2 : b < c) : a < c := by
-  simp only [instLT] at h1 h2
-  unfold lt at h1 h2
-  simp only [instLT]
-  unfold lt
-  exact Nat.lt_trans h1 h2
+theorem lt_trans {a b c: NumIdent} (h1 : a < b) (h2 : b < c) : a < c := Nat.lt_trans h1 h2
 
 instance : Trans (· < · : NumIdent → NumIdent → Prop) (· < ·) (· < ·) where
   trans a b := lt_trans a b
@@ -132,12 +112,7 @@ namespace Ident
 Ensures that `<` is transitive on `Ident`.
 -/
 @[simp]
-theorem lt_trans {a b c: Ident} (h1 : a < b) (h2 : b < c) : a < c := by
-  simp only [instLT] at h1 h2
-  unfold lt at h1 h2
-  simp only [instLT]
-  unfold lt
-  exact NonEmptyString.lt_trans h1 h2
+theorem lt_trans {a b c: Ident} (h1 : a < b) (h2 : b < c) : a < c := NonEmptyString.lt_trans h1 h2
 
 instance : Trans (· < · : Ident → Ident → Prop) (· < ·) (· < ·) where
   trans a b := lt_trans a b
@@ -152,12 +127,7 @@ namespace AlphanumIdent
 Ensures that `<` is transitive on `AlphanumIdent`.
 -/
 @[simp]
-theorem lt_trans {a b c: AlphanumIdent} (h1 : a < b) (h2 : b < c) : a < c := by
-  simp only [instLT] at h1 h2
-  unfold lt at h1 h2
-  simp only [instLT]
-  unfold lt
-  exact NonEmptyString.lt_trans h1 h2
+theorem lt_trans {a b c: AlphanumIdent} (h1 : a < b) (h2 : b < c) : a < c := NonEmptyString.lt_trans h1 h2
 
 instance : Trans (· < · : AlphanumIdent → AlphanumIdent → Prop) (· < ·) (· < ·) where
   trans a b := lt_trans a b
@@ -173,38 +143,24 @@ Ensures that `<` is transitive on `PreRelIdent`.
 -/
 @[simp]
 theorem lt_trans {a b c: PreRelIdent} (h1 : a < b) (h2 : b < c) : a < c := by
-  simp only [instLT] at h1 h2; unfold lt at h1 h2
-  simp only [instLT]; unfold lt
-  cases ha: a with
-  | alphanumIdent aa =>
-    cases hb : b with
-    | alphanumIdent ba => --
-      cases hc : c with
-      | alphanumIdent ca =>
-        simp [ha, hb] at h1; simp [hb, hc] at h2; simp
-        exact AlphanumIdent.lt_trans h1 h2
-      | numIdent cn =>
-        simp [ha, hb] at h1; simp [hb, hc] at h2
-    | numIdent bn =>
-      cases hc : c with
-      | alphanumIdent ca
-      | numIdent cn =>
-        simp [ha, hb] at h1
-  | numIdent an =>
-    cases hb : b with
-    | alphanumIdent ba =>
-      cases hc : c with
-      | alphanumIdent ca =>
-        simp
-      | numIdent cn =>
-        simp [ha, hb] at h1; simp [hb, hc] at h2
-    | numIdent bn =>
-      cases hc : c with
-      | alphanumIdent ca =>
-        simp
-      | numIdent cn =>
-        simp [ha, hb] at h1; simp [hb, hc] at h2; simp
-        exact NumIdent.lt_trans h1 h2
+  match ga: a with
+  | alphanumIdent va =>
+      match gb: b with
+      | alphanumIdent vb =>
+        match gc: c with
+        | alphanumIdent vc => exact AlphanumIdent.lt_trans h1 h2
+        | numIdent vc => contradiction
+      | numIdent vb => contradiction
+  | numIdent va =>
+    match gb: b with
+    | alphanumIdent vb =>
+      match gc: c with
+      | alphanumIdent vc => assumption
+      | numIdent vc => contradiction
+    | numIdent vb =>
+      match gc: c with
+      | alphanumIdent vc => assumption
+      | numIdent vc => exact NumIdent.lt_trans h1 h2
 
 instance : Trans (· < · : PreRelIdent → PreRelIdent → Prop) (· < ·) (· < ·) where
   trans a b := lt_trans a b
@@ -217,12 +173,7 @@ namespace DotSepPreRelIdents
 Ensures that `<` is transitive on `DotSepPreRelIdents`.
 -/
 @[simp]
-theorem lt_trans {a b c: DotSepPreRelIdents} (h1 : a < b) (h2 : b < c) : a < c := by
-  simp only [instLT] at h1 h2
-  unfold lt at h1 h2
-  simp only [instLT]
-  unfold lt
-  exact NonEmptyList.lt_trans h1 h2
+theorem lt_trans {a b c: DotSepPreRelIdents} (h1 : a < b) (h2 : b < c) : a < c := NonEmptyList.lt_trans h1 h2
 
 instance : Trans (· < · : DotSepPreRelIdents → DotSepPreRelIdents → Prop) (· < ·) (· < ·) where
   trans a b := lt_trans a b
@@ -237,12 +188,7 @@ namespace VersionCore
 Ensures that `<` is transitive on `VersionCore`.
 -/
 @[simp]
-theorem lt_trans {a b c: VersionCore} (h1 : a < b) (h2 : b < c) : a < c := by
-  simp only [instLT] at h1 h2
-  unfold lt at h1 h2
-  simp only [instLT]
-  unfold lt
-  exact List.lt_trans h1 h2
+theorem lt_trans {a b c: VersionCore} (h1 : a < b) (h2 : b < c) : a < c := List.lt_trans h1 h2
 
 instance : Trans (· < · : VersionCore → VersionCore → Prop) (· < ·) (· < ·) where
   trans a b := lt_trans a b
@@ -292,10 +238,6 @@ Ensures that `<` is transitive on `Version`.
 -/
 @[simp]
 theorem lt_trans {a b c: Version} (h1 : a < b) (h2 : b < c) : a < c := by
-  simp only [instLT] at h1 h2
-  unfold lt at h1 h2
-  simp only [instLT]
-  unfold lt
   cases h1 with
   | inl h1l =>
     cases h2 with

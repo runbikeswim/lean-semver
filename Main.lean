@@ -1,5 +1,5 @@
 /-
-Copyright (c) 2025 Stefan Kusterer. All rights reserved.
+Copyright (c) 2025, 2026 Stefan Kusterer. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 -/
 
@@ -10,7 +10,7 @@ open Version
 def getVersion : IO Version := do
 
   let input ← (← IO.getStdin).getLine
-  let version ← (parse input.trim).toIO!
+  let version ← (parse input.trimAscii.toString).toIO!
   return version
 
 def main : IO Unit := do

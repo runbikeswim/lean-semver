@@ -1,18 +1,28 @@
 /-
-Copyright (c) 2025 Stefan Kusterer. All rights reserved.
+Copyright (c) 2025, 2026 Stefan Kusterer. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
+-/
 
-run all tests via
+import SemVer
+
+/-!
+This file contains test that can be executed via
 ```sh
   lake exe tests
+```
+
+If all goes well, the output should be
+```sh
+ℹ [8/10] Built Tests
+info: Tests.lean:215:0: running tests ...
+info: Tests.lean:297:0: ... all tests passed!
+Good Bye!
 ```
 
 Breaking tests will cause panic due to failing `assert!`s.
 -/
 
-import SemVer
-
-/-
+/--
 Print something to stdout if silent is false
 -/
 def maybePrintln (s : String) (silent : Bool := false): IO Unit :=
@@ -42,13 +52,17 @@ def expect_failure {α : Type} (a : ParserResult α) (silent : Bool := false) : 
   | .failure e =>
     match e.input with
     | some str =>
-      maybePrintln s!"+++ SUCCESS +++\ncorrectly detected error '{e.message}'\nin position {e.position} of '{str}'" silent
+      maybePrintln s!"+++ SUCCESS +++\ncorrectly detected error '{e.message}'\nin '{str}'" silent
     | none =>
-      maybePrintln s!"+++ SUCCESS +++\ncorrectly detected error '{e.message}'\nin position {e.position} of the input string" silent
+      maybePrintln s!"+++ SUCCESS +++\ncorrectly detected error '{e.message}'\nin the input string" silent
   | .success _ => assert! false; maybePrintln "--- FAILURE ---" silent
 
 section Data
 
+/--
+This is a slightly modified section of the [semantic versioning specification](https://semver.org/) (2.0.0), which is
+serves as sample input for function `extractVersions`.
+-/
 def sem_ver_spec: List String := [
     r#"The following text is a slightly changed version of the respective section in https://semver.org/ (2.0.0)"#,
     r#"which is made available under the [Creative Commons ― CC BY 3.0](https://creativecommons.org/licenses/by/3.0/) license."#,
@@ -161,6 +175,9 @@ def sem_ver_spec: List String := [
     r#""#
   ]
 
+/--
+If `extractVersions` works as expected, the result should be identical with this list of strings.
+-/
 def version_strings_in_sem_ver_spec := [
     "2.0.0",
     "1.9.0", "1.10.0", "1.0.0", "1.0.0-alpha", "1.0.0-alpha.1", "1.0.0-0.3.7",
@@ -171,7 +188,7 @@ def version_strings_in_sem_ver_spec := [
     "1.0.0-beta", "1.0.0-beta.2", "1.0.0-beta.11", "1.0.0-rc.1", "1.0.0"
   ]
 
-/-
+/--
 Strings representing valid semantic versions, copied from https://regex101.com/r/Ly7O1x/3/
 -/
 def valid_version_strings := [
@@ -182,9 +199,14 @@ def valid_version_strings := [
     "1.0.0", "2.0.0", "1.1.7", "2.0.0+build.1848", "2.0.1-alpha.1227", "1.0.0-alpha+beta",
     "1.2.3----RC-SNAPSHOT.12.9.1--.12+788", "1.2.3----R-S.12.9.1--.12+meta",
     "1.2.3----RC-SNAPSHOT.12.9.1--.12", "1.0.0+0.build.1-rc.10000aaa-kk-0.1",
-    "99999999999999999999999.999999999999999999.99999999999999999", "1.0.0-0A.is.legal"
+    "99999999999999999999999.999999999999999999.99999999999999999", "1.0.0-0A.is.legal",
+    "1.0.0", "0.1.0", "2.3.4", "1.0.0-alpha", "1.0.0-rc.1", "2.1.3-beta+exp.sha.5114f85",
+    "1.0.0+build.20230101", "10.20.30-pre.2+build.meta", "0.0.1-0", "5.6.7-rc.2+build.456"
   ]
 
+/--
+Strings that aren't correct semantic versions
+-/
 def invalid_version_strings := [
     "1", "1.2", "1.2.3-0123", "1.2.3-0123.0123", "1.1.2+.123", "+invalid", "-invalid",
     "-invalid+invalid", "-invalid.01", "alpha", "alpha.beta", "alpha.beta.1", "alpha.1",
@@ -193,7 +215,9 @@ def invalid_version_strings := [
     "1.0.0-alpha.....1", "1.0.0-alpha......1", "1.0.0-alpha.......1", "01.1.1", "1.01.1",
     "1.1.01", "1.2", "1.2.3.DEV", "1.2-SNAPSHOT", "1.2.31.2.3----RC-SNAPSHOT.12.09.1--..12+788",
     "1.2-RC-SNAPSHOT", "-1.0.3-gamma+b7718", "+justmeta", "9.8.7+meta+meta", "9.8.7-whatever+meta+meta",
-    "99999999999999999999999.999999999999999999.99999999999999999----RC-SNAPSHOT.12.09.1--------------------------------..12"
+    "99999999999999999999999.999999999999999999.99999999999999999----RC-SNAPSHOT.12.09.1--------------------------------..12",
+    "1.0", "1", "01.2.3", "1.02.3", "1.2.03", "v1.0.0",
+    "1.2.3-", "1.2.3+", "1.2.3-alpha.01", "1.2.3..4"
   ]
 
 end Data

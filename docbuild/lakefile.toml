@@ -1,6 +1,6 @@
 name = "docbuild"
 reservoir = false
-version = "0.1.0"
+version = "1.0.1"
 packagesDir = "../.lake/packages"
 
 [leanOptions]
@@ -17,7 +17,7 @@ path = "../"
 [[require]]
 scope = "leanprover"
 name = "doc-gen4"
-rev = "v4.24.0"
+rev = "v4.29.0"
 
 # run via 
 # cd docbuild
