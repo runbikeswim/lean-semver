@@ -1027,38 +1027,37 @@ Parses the given string and if it is a valid version, returns it
 wrapped in a `ParserResult`.
 -/
 def parse (s : String) : ParserResult Version :=
-  match (s.split '+').toList with
-  | [] => panic "internal error - split returns empty list"
-  | [core_pre_rel_slice] =>
-      match parseCorePreRel core_pre_rel_slice  with
-      | .failure e => .failure e
-      | .success core_pre_rel_res =>
-          .success {
-            toVersionCore := core_pre_rel_res.fst,
-            preRelease := core_pre_rel_res.snd,
-            build := none
-          }
-  | [core_pre_rel_slice, build_slice] =>
-    match parseCorePreRel core_pre_rel_slice with
-    | .failure e => .failure e
-    | .success core_pre_rel_res =>
-      match DotSepBuildIdents.parse build_slice with
-      | .success build_res =>
+  let plus_pos := s.find (· == '+')
+  let core_pre_rel_slice := s.sliceTo plus_pos
+  match parseCorePreRel core_pre_rel_slice with
+  | .failure e => .failure e
+  | .success core_pre_rel_res =>
+    if g : plus_pos = s.endPos then -- no '+' found
+      .success {
+        toVersionCore := core_pre_rel_res.fst,
+        preRelease := core_pre_rel_res.snd,
+        build := none
+      }
+    else -- one '+' found
+      let build_slice := s.sliceFrom (plus_pos.next g)
+      if build_slice.find (· == '+') < build_slice.endPos then -- second '+' found
+        .failure {
+          message := "versions cannot contain more than one plus-sign ('+')",
+          input := build_slice
+        }
+      else
+        match DotSepBuildIdents.parse build_slice with
+        | .success build_res =>
           .success {
             toVersionCore := core_pre_rel_res.fst,
             preRelease := core_pre_rel_res.snd,
             build := build_res
           }
-      | .failure e =>
-        .failure {
-          message := e.message,
-          input := build_slice
-        }
-  | _::(_::_) =>
-    .failure  {
-      message := "versions cannot contain more than one plus-sign",
-      input := s
-    }
+        | .failure e =>
+          .failure {
+            message := e.message,
+            input := build_slice
+          }
 
 /--
 Returns `true` if public API provided under this version is stable.
@@ -1066,8 +1065,7 @@ Returns `true` if public API provided under this version is stable.
 def isStable (v: Version) : Bool :=
   match v with
   | { major := 0, minor := _, patch := _, preRelease := _, build := _ }
-  | { major := _, minor := _, patch := _, preRelease := some _, build := _ }
-      => false
+  | { major := _, minor := _, patch := _, preRelease := some _, build := _ } => false
   | _ => true
 
 /--
