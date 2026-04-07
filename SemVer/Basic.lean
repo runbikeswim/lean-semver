@@ -1038,26 +1038,20 @@ def parse (s : String) : ParserResult Version :=
         preRelease := core_pre_rel_res.snd,
         build := none
       }
-    else -- one '+' found
+    else -- '+' found
       let build_slice := s.sliceFrom (plus_pos.next g)
-      if build_slice.find (· == '+') < build_slice.endPos then -- second '+' found
+      match DotSepBuildIdents.parse build_slice with
+      | .success build_res =>
+        .success {
+          toVersionCore := core_pre_rel_res.fst,
+          preRelease := core_pre_rel_res.snd,
+          build := build_res
+        }
+      | .failure e =>
         .failure {
-          message := "versions cannot contain more than one plus-sign ('+')",
+          message := e.message,
           input := build_slice
         }
-      else
-        match DotSepBuildIdents.parse build_slice with
-        | .success build_res =>
-          .success {
-            toVersionCore := core_pre_rel_res.fst,
-            preRelease := core_pre_rel_res.snd,
-            build := build_res
-          }
-        | .failure e =>
-          .failure {
-            message := e.message,
-            input := build_slice
-          }
 
 /--
 Returns `true` if public API provided under this version is stable.
