@@ -174,8 +174,14 @@ a non-empty list of terms of type `α`.
 -/
 def parse {α : Type} (s : String.Slice) (parseElement : String.Slice → ParserResult α) (sep : Char) :
   ParserResult (NonEmptyList α) :=
-
-  let rec helper (slices : List String.Slice) (parseElement : String.Slice → ParserResult α) :
+  match helper (s.split sep).toList parseElement with
+  | .success res =>
+    if h : !res.isEmpty then
+      .success ⟨res, h⟩
+    else
+      .failure default
+  | .failure e => .failure e
+  where helper (slices : List String.Slice) (parseElement : String.Slice → ParserResult α) :
     ParserResult (List α) :=
     match slices with
     | s::tail =>
@@ -186,14 +192,6 @@ def parse {α : Type} (s : String.Slice) (parseElement : String.Slice → Parser
         | .failure e => .failure e
       | .failure e => .failure e
     | [] => .success []
-
-  match helper (s.split sep).toList parseElement with
-  | .success res =>
-    if h : !res.isEmpty then
-      .success ⟨res, h⟩
-    else
-      .failure default
-  | .failure e => .failure e
 
 end NonEmptyList
 end NonEmptyLists
@@ -319,13 +317,8 @@ Hence it is used here instead of shorter implementations like
 def NonEmptyString.hasOnlyDigits (nes: NonEmptyString) : Bool := nes.val.isNat
 ```
 -/
-def NonEmptyString.hasOnlyDigits (nes: NonEmptyString) : Bool :=
 
-  let rec helper : List Char → Bool
-    | [] => true
-    | c::cs => c.isDigit' && (helper cs)
-
-  helper nes.val.toList
+def NonEmptyString.hasOnlyDigits (nes: NonEmptyString) : Bool := nes.val.toList.all Char.isDigit'
 
 /--
 Defines a subtype of `NonEmptyString` with the restriction that all
@@ -359,13 +352,7 @@ def toNat (nes: NonEmptyString) : Nat := nes.val.toNat!
 However, for direct use in proofs, this implementation appears
 as preferable.
 -/
-def toNat (d : Digits) : Nat :=
-
-    let rec helper : List Char → Nat → Nat
-    | [], acc => acc
-    | c::cs, acc => helper cs (acc * 10 + c.toDigit!)
-
-  helper d.val.val.toList 0
+def toNat (d : Digits) : Nat := d.val.val.foldl (fun acc => fun c => acc * 10 + c.toDigit!) 0
 
 /--
 Less-then relation for digits, which is based on `Nat` (and not `String`)
@@ -540,6 +527,9 @@ def NonEmptyString.isAllowedAsIdentifier (s: NonEmptyString) : Bool :=
   | [] => true
 
   helper s.val.toList
+
+def NonEmptyString.isAllowedAsIdentifier' (s: NonEmptyString) : Bool :=
+  s.val.foldl (fun acc => fun c => acc && c.isAllowedForIdentifier) true
 
 /--
 Defines the fundamental base type for the different kinds of identifiers.
