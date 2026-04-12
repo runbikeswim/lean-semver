@@ -36,7 +36,6 @@ instance : Repr String.Slice where
   reprPrec s _ := s.toString.quote
 
 /--
-TODO: redo
 Contains an error message and the position at which the interpretation
 of the input string was not possible anymore.
 -/
@@ -381,11 +380,9 @@ Decidable _less-then_ for `Digits`.
 -/
 def decLt (a b : Digits) : Decidable (a < b) :=
   if h: a.toNat < b.toNat then
-    have g : lt a b := by unfold lt; exact h
-    isTrue g
+    isTrue h
   else
-    have g : ¬ lt a b := by unfold lt; exact h
-    isFalse g
+    isFalse h
 
 instance decidableLT (a b : Digits) : Decidable (a < b) := decLt a b
 
@@ -394,7 +391,6 @@ Converts strings to `Digits` if possible - wrapped into a
 `ParserResult`.
 -/
 def parse (s: String.Slice) : ParserResult Digits :=
-
   let str := s.toString
   if h1: !str.isEmpty then
     let nes : NonEmptyString := ⟨str, h1⟩
@@ -522,14 +518,13 @@ def Char.isAllowedForIdentifier (chr : Char) : Bool :=
 Checks if a `NonEmptyString` only contains characters that are allowed for identifiers.
 -/
 def NonEmptyString.isAllowedAsIdentifier (s: NonEmptyString) : Bool :=
-  let rec helper : (List Char) → Bool
+  helper s.val.toList
+  where helper : (List Char) → Bool
   | chr::tail => chr.isAllowedForIdentifier && helper tail
   | [] => true
 
-  helper s.val.toList
-
 def NonEmptyString.isAllowedAsIdentifier' (s: NonEmptyString) : Bool :=
-  s.val.foldl (fun acc => fun c => acc && c.isAllowedForIdentifier) true
+  s.val.all Char.isAllowedForIdentifier
 
 /--
 Defines the fundamental base type for the different kinds of identifiers.
@@ -589,12 +584,21 @@ def Char.isAllowedAndNonDigit (chr: Char) : Bool := chr.isAlpha || chr = '-'
 
 /--
 Returns `true` iff at least one character in the given identifier is not a digit.
+
+```lean
+def Ident.hasNonDigit (i: Ident) : Bool :=
+  i.val.val.any Char.isAllowedAndNonDigit
+```
 -/
 def Ident.hasNonDigit (i: Ident) : Bool :=
-  let rec helper : (List Char) → Bool
-    | chr::tail => if chr.isAllowedAndNonDigit then true else helper tail
-    | [] => false
   helper i.val.val.toList
+  where helper : (List Char) → Bool
+    | chr::tail => chr.isAllowedAndNonDigit || helper tail
+    | [] => false
+
+example : Ident.hasNonDigit ⟨⟨"12ab", by decide⟩, by decide⟩ := by
+  simp only [Ident.hasNonDigit]
+  rfl
 
 def AlphanumIdent : Type := { i : Ident // i.hasNonDigit }
 
@@ -939,11 +943,11 @@ namespace Version
 Returns the string representation of a version.
 -/
 def toString (a : Version) : String :=
-    match a.preRelease, a.build with
-    | none, none => s!"{a.toVersionCore}"
-    | some r, none => s!"{a.toVersionCore}-{r}"
-    | none, some b => s!"{a.toVersionCore}+{b}"
-    | some r, some b => s!"{a.toVersionCore}-{r}+{b}"
+  match a.preRelease, a.build with
+  | none, none => s!"{a.toVersionCore}"
+  | some r, none => s!"{a.toVersionCore}-{r}"
+  | none, some b => s!"{a.toVersionCore}+{b}"
+  | some r, some b => s!"{a.toVersionCore}-{r}+{b}"
 
 instance : ToString Version := ⟨toString⟩
 
@@ -1107,6 +1111,7 @@ def setBuild? (v: Version) (str : String) : Option Version :=
   | { toVersionCore := c, preRelease := some p, build := _ } =>
     (parse s!"{c}-{p}+{str}").to?
 
+
 /--
 Helper function that checks if a character can be the start of a version
 in a string, given the previous character (if any).
@@ -1130,35 +1135,19 @@ end Versions
 
 section Extraction
 
-/--
-TODO: reimplement to return String.Slice
-Helper that cuts off the prefix of a string that cannot be part of a version.
--/
-def cutOffPrefix (ch : Option Char) (str: String) : String :=
-
-  let rec helper : (Option Char) → (List Char) → (List Char)
-    | _, [] => []
-    | c, d::t =>
-      if (Version.isPossibleStart c) d then
-        d::t
-      else
-        helper d t
-
-  String.ofList ((helper ch) str.toList)
+def cutOffPrefix (s: String.Slice) : String.Slice := s.dropWhile (fun c => !c.isDigit')
 
 /--
 Extracts all versions that are contained in a given string.
 -/
 def extractVersions (str: String) : List Version :=
-
-  let rec helper : List String.Slice → List Version
-    | [] => []
-    | text::tail =>
-      let withoutPrefix := cutOffPrefix none text.toString
-      match Version.parse withoutPrefix with
-      | .success v => v::(helper tail)
-      | .failure _ => helper tail
-
   helper (str.split (not ∘ Char.isValidForVersion)).toList
+  where helper : List String.Slice → List Version
+  | [] => []
+  | text::tail =>
+    let withoutPrefix := (cutOffPrefix text).toString
+    match Version.parse withoutPrefix with
+    | .success v => v::(helper tail)
+    | .failure _ => helper tail
 
 end Extraction
