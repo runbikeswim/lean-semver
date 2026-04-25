@@ -5,6 +5,13 @@ Released under Apache 2.0 license as described in the file LICENSE.
 
 import SemVer.Basic
 
+/-!
+# SemVer.Lemmas
+
+In this file, theorems are provided that assert that the _less-than_ (`<`) relations for the types
+used to define version numbers are transitive, i.e. that a < c results from a < b ∧ b < c.
+-/
+
 section NonEmptyLists
 namespace NonEmptyList
 
@@ -78,6 +85,7 @@ end NonEmptyStrings
 section Digits
 
 namespace Digits
+
 /--
 Asserts that `<` is transitive on `Digits`.
 -/

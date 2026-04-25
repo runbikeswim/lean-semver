@@ -1111,7 +1111,6 @@ def setBuild? (v: Version) (str : String) : Option Version :=
   | { toVersionCore := c, preRelease := some p, build := _ } =>
     (parse s!"{c}-{p}+{str}").to?
 
-
 /--
 Helper function that checks if a character can be the start of a version
 in a string, given the previous character (if any).
