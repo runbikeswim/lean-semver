@@ -40,11 +40,16 @@ def main : IO Unit := do
     else
       IO.println "*not* stable"
 
-    IO.println "for the precedence of the first and second version, the following is true:"
+    if version_0 = version_1 then
+      IO.println "both versions are equal"
+
     if version_0 < version_1 then
-      IO.println s!"    {version_0} < {version_1}"
+      IO.println s!"the first version comes before the second, i.e. {version_0} < {version_1}"
     else
-      IO.println s!"  ¬ {version_0} < {version_1}"
+      if version_1 < version_0 then
+        IO.println s!"the second version comes before the first, i.e. {version_1} < {version_0}"
+      else
+        IO.println s!"the provided versions are *not* comparable with respect to the less-than-relation (<)"
 
   catch e =>
     IO.println e

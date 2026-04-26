@@ -57,6 +57,7 @@ the term representing the first version identifier is:
                  PreRelIdent.alphanumIdent "gamma",
                  PreRelIdent.numIdent "2"],
   build := some [BuildIdent.alphanumIdent "2025-09-07", BuildIdent.alphanumIdent "17-03-42", BuildIdent.digits "0000"] }
+the public API related to the first version is *not* stable
 the term representing the second version identifier is:
 { toVersionCore := { major := 1, minor := 1, patch := 2 },
   preRelease := some [PreRelIdent.alphanumIdent "alpha",
@@ -64,8 +65,8 @@ the term representing the second version identifier is:
                  PreRelIdent.alphanumIdent "gamma",
                  PreRelIdent.numIdent "10"],
   build := some [BuildIdent.alphanumIdent "2025-09-07", BuildIdent.alphanumIdent "16-23-57", BuildIdent.digits "0001"] }
-for the precedence of the first and second version, the following is true:
-    1.1.2-alpha.beta.gamma.2+2025-09-07.17-03-42.0000 < 1.1.2-alpha.beta.gamma.10+2025-09-07.16-23-57.0001
+the public API related to the second version is *not* stable
+the first version comes before the second, i.e. 1.1.2-alpha.beta.gamma.2+2025-09-07.17-03-42.0000 < 1.1.2-alpha.beta.gamma.10+2025-09-07.16-23-57.0001
 ```
 
 ##### Example 2
@@ -80,6 +81,7 @@ the term representing the first version identifier is:
                  PreRelIdent.alphanumIdent "gamma",
                  PreRelIdent.numIdent "2"],
   build := some [BuildIdent.alphanumIdent "2025-09-07", BuildIdent.alphanumIdent "16-23-57", BuildIdent.digits "0001"] }
+the public API related to the first version is *not* stable
 the term representing the second version identifier is:
 { toVersionCore := { major := 1, minor := 1, patch := 2 },
   preRelease := some [PreRelIdent.alphanumIdent "alpha",
@@ -87,8 +89,8 @@ the term representing the second version identifier is:
                  PreRelIdent.alphanumIdent "gamma",
                  PreRelIdent.numIdent "2"],
   build := some [BuildIdent.alphanumIdent "2025-09-07", BuildIdent.alphanumIdent "17-03-42", BuildIdent.digits "0000"] }
-for the precedence of the first and second version, the following is true:
-  ¬ 1.1.2-alpha.beta.gamma.2+2025-09-07.16-23-57.0001 < 1.1.2-alpha.beta.gamma.2+2025-09-07.17-03-42.0000
+the public API related to the second version is *not* stable
+the provided versions are *not* comparable with respect to the less-than-relation (<)
 ```
 
 ## How it is implemented
@@ -124,19 +126,17 @@ returns
 ```text
 ParserResult.failure
   { message := "exactly three numbers - separated by '.' - must be provided, not one more, not one less",
-    position := 0 }
+    input := some "1.0.1.1" }
 ```
 
 #### Second Example of an Incorrect Version Identifier
 
 ```lean
-#eval Version.parse "1.0.1-alpha.00.1023.xyz"
+#eval (Version.parse "1.0.1.1-alpha.0.1023.xyz").toString
 ```
 leads to
 ```text
-ParserResult.failure
-  { message := "neither alphanumeric nor numeric identifier found because \n1. alphanumeric identifier must contain a non-digit character in position 14\n2. numeric identifiers must not have leading zeros in position 12",
-    position := 14 }
+"error in '1.0.1.1' (after '', before '-alpha.0.1'): exactly three numbers - separated by '.' - must be provided, not one more, not one less"
 ```
 
 ### Rendering

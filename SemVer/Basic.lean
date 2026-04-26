@@ -20,7 +20,37 @@ section Accessories
 namespace String.Slice
 
 /--
-Return the prefix of `s` within the underlying string.
+`String.Slice` has no `Repr` but uses `ToString` instead.
+However, the default implementation does not provide the surrounding quotes (") and that's
+an own instance is provided that overrides the default.
+
+Before defining an instance for `Repr String.Slice`:
+```
+#synth (Repr String.Slice) -- failed to synthesize Repr Slice
+#synth (ToString String.Slice) -- instToString
+#eval "abc" -- "abc"
+#eval "abc".toSlice -- abc without surrounding quotes
+```
+
+After defining the own instance:
+```
+#synth (Repr String.Slice) -- instRepr_semVer
+#eval "abc".toSlice -- "abc" with surrounding quotes
+```
+-/
+instance : Repr String.Slice where
+  reprPrec s _ := s.toString.quote
+
+/--
+Returns the `n` preceding characters of `s` in underlying string as `String.Slice`.
+If there are less then `n` characters before `s`, all characters preceding `s` are returned.
+```
+def s : String.Slice := "red green blue".slice ⟨⟨4⟩, by decide⟩ ⟨⟨9⟩, by decide⟩ (by decide)
+
+#eval s -- "green"
+#eval s.getPrefixn 2 -- "d "
+#eval s.getPrefixn 10 -- "red "
+```
 -/
 def getPrefixn (s : String.Slice) (n : Nat) : String.Slice :=
   let p := s.startInclusive.prevn n
@@ -30,7 +60,8 @@ def getPrefixn (s : String.Slice) (n : Nat) : String.Slice :=
   s.str.slice p s.startInclusive this
 
 /--
-Return the prefix of `s` within the underlying string.
+Returns the full prefix of `s` (i.e. all characters before `s`) in the underlying string
+as `String.Slice`.
 -/
 def getPrefix (s : String.Slice) : String.Slice :=
   have : s.str.startPos ≤ s.startInclusive := by
@@ -38,7 +69,15 @@ def getPrefix (s : String.Slice) : String.Slice :=
   s.str.slice s.str.startPos s.startInclusive this
 
 /--
-Return the suffix of `s` within the underlying string.
+Returns the `n` succeeding characters of `s` in underlying string as `String.Slice`.
+If there are less then `n` characters after `s`, all characters following `s` are returned.
+```
+def s : String.Slice := "red green blue".slice ⟨⟨4⟩, by decide⟩ ⟨⟨9⟩, by decide⟩ (by decide)
+
+#eval s -- "green"
+#eval s.getSuffixn 2 -- " b"
+#eval s.getSuffixn 10 -- " blue"
+```
 -/
 def getSuffixn (s : String.Slice) (n : Nat) : String.Slice :=
   let p := s.endExclusive.nextn n
@@ -48,27 +87,22 @@ def getSuffixn (s : String.Slice) (n : Nat) : String.Slice :=
   s.str.slice s.endExclusive p this
 
 /--
-Return the suffix of `s` within the underlying string.
+Returns the full suffix of `s` (i.e. all characters after `s`) within the underlying string
+as `String.Slice`.
 -/
 def getSuffix (s : String.Slice) : String.Slice :=
   have : s.endExclusive ≤ s.str.endPos := String.Pos.le_endPos s.endExclusive
   s.str.slice s.endExclusive s.str.endPos this
 
-/--
-`String.Slice` has no `Repr` and without it, `deriving Repr` does not work for types that use `String.Slice`.
--/
-instance : Repr String.Slice where
-  reprPrec s _ := s.toString.quote
-
 end String.Slice
-
 end Accessories
 
 section ParserErrors
 
 /--
-`message` gives an explanation of the error and `input` optionally
-provides the section of the input string that could not be parsed and thus caused the error.
+If parsing fails, a `ParserError` is returned. In that, `message` gives an explanation of the error
+and `input` optionally provides the section of the input string that could not be parsed and thus
+caused the error.
 -/
 structure ParserError where
   message : String
@@ -82,7 +116,7 @@ Returns a formatted string that contains the error message some context if some 
 -/
 def toString (e : ParserError) : String :=
   match e.input with
-  | some slice => s!"error in '{slice}' (prefix: '{slice.getPrefixn 10}', suffix: '{slice.getSuffixn 10}'): {e.message}"
+  | some slice => s!"error in '{slice}' (after '{slice.getPrefixn 10}', before '{slice.getSuffixn 10}'): {e.message}"
   | none => e.message
 
 instance : ToString ParserError := ⟨toString⟩
@@ -98,9 +132,8 @@ end ParserErrors
 section ParserResults
 
 /--
-The types defined
-Holds either the value of the given type, if parsing was
-successful or a parser error in case of failure.
+Parsers return a `ParserResult`. If parsing was successful, some value of type `α` is included,
+which has by retrieved from the input. If the input was incorrect, `ParserResult` is wrapper of a `ParserError`.
 -/
 inductive ParserResult (α : Type) where
   | success : α → ParserResult α
@@ -113,6 +146,13 @@ Defines a default for `ParserResult α` based on the default of `ParserError`.
 instance {α : Type} : Inhabited (ParserResult α) := ⟨.failure default⟩
 
 namespace ParserResult
+
+def toString {α : Type} [ToString α] (res : ParserResult α) : String :=
+  match res with
+  | .success val => ToString.toString val
+  | .failure error => ToString.toString error
+
+instance {α : Type} [ToString α] : ToString (ParserResult α) := ⟨toString⟩
 
 /--
 Returns `true` iff the `ParserResult` results from a successful parser call.
@@ -132,8 +172,8 @@ def to? {α : Type} (res : ParserResult α) : Option α :=
   | .failure _ => none
 
 /--
-Unwraps the value from a `success` parser result and
-panics if a `.failure` is provided.
+Unwraps the value from a `.success`ful parser result and
+panics if a `ParserResult` with a `.failure` is provided.
 -/
 def to! {α : Type} [Inhabited α] (res : ParserResult α) : α :=
   match res with
@@ -141,8 +181,9 @@ def to! {α : Type} [Inhabited α] (res : ParserResult α) : α :=
   | .failure e => panic s!"no parser result due to {e}"
 
 /--
-Converts the value from a `success` parser result
-into an term of `IO α` and throws an error, if a `.failure` is provided.
+Converts the value from a `success`ful parser result
+into an term of `IO α` and throws an error, if a
+`ParserResult` with `.failure` is provided.
 -/
 def toIO! {α : Type} (res : ParserResult α) : IO α := do
   match res with
@@ -154,10 +195,18 @@ end ParserResults
 
 section Parsers
 
+/--
+A `Parser` provides function `parse` that takes a `String.Slice` as input and returns
+a `ParserResult`.
+-/
 class Parser (α: Type) where
   parse (s : String.Slice) : ParserResult α
 
-class ElementsParser (α : Type) (β : Type → Type) [Parser α] where
+/--
+A `SplitMapParser` implements `parse` by splitting the provided `String.Slice` based
+on separator `sep` and mapping `Parser α` to each sub-slice.
+-/
+class SplitMapParser (α : Type) [Parser α] (β : Type → Type)  where
   parse (s : String.Slice) (sep : Char) : ParserResult (β α)
 
 end Parsers
@@ -169,33 +218,34 @@ Defines non-empty lists as subtype of `List`.
 -/
 def NonEmptyList (α : Type) : Type := {l: List α // !l.isEmpty}
 
+namespace NonEmptyList
+
 instance (α : Type) [DecidableEq α] : DecidableEq (NonEmptyList α) :=
   Subtype.instDecidableEq
 
-namespace NonEmptyList
+/--
+Provides a representation for a non-empty list so that `#eval` can be used.
+-/
+def repr {α : Type} [Repr α] (a : NonEmptyList α) (n : Nat) : Std.Format := List.repr a.val n
+
+instance (α : Type) [Repr α] : Repr (NonEmptyList α) :=  ⟨repr⟩
 
 /--
-Less-then (`lt`) for non-empty lists.
+_Less-than_-relation for non-empty lists, which is `List.lt` applied to the
+two lists (lexicographic ordering of lists with respect to an ordering on their elements).
 -/
 def lt {α: Type} [LT α] (a b : NonEmptyList α) : Prop := a.val.lt b.val
 
 instance (α : Type) [LT α] : LT (NonEmptyList α) := ⟨lt⟩
 
 /--
-Decidable _less-then_ for `NonEmptyList`.
+Decidable _less-than_ for `NonEmptyList`.
 -/
 def decLt {α: Type} [DecidableEq α] [LT α] [DecidableLT α] (a b : NonEmptyList α) :
   Decidable (a < b) := List.decidableLT a.val b.val
 
 instance (α : Type) [DecidableEq α] [LT α] [DecidableLT α] :
   DecidableLT (NonEmptyList α) := decLt
-
-/--
-Provides a representation for a non empty list so that `#eval` can be used.
--/
-def repr {α : Type} [Repr α] (a : NonEmptyList α) (n : Nat) : Std.Format := List.repr a.val n
-
-instance (α : Type) [Repr α] : Repr (NonEmptyList α) := ⟨repr⟩
 
 /--
 Renders a non-empty list as string with its elements separated by ".".
@@ -210,31 +260,31 @@ def toDotSeparatedString {α : Type} [ToString α] (a : NonEmptyList α) : Strin
   String.intercalate "." (a.val.map (fun a => ToString.toString a))
 
 /--
-Parses the given string and, if possible, returns a result containing
+Parses the given string slice and, if possible, returns a result containing
 a non-empty list of terms of type `α`.
 -/
 def parse (α : Type) [Parser α] (s : String.Slice) (sep : Char) :
   ParserResult (NonEmptyList α) :=
-  match helper (s.split sep).toList with
+  match mapParser (s.split sep).toList with
   | .success res =>
     if h : !res.isEmpty then
       .success ⟨res, h⟩
     else
       .failure default
   | .failure e => .failure e
-  where helper {α : Type} [Parser α] (slices : List String.Slice) :
+  where mapParser {α : Type} [Parser α] (slices : List String.Slice) :
     ParserResult (List α) :=
     match slices with
     | s::tail =>
       match Parser.parse s with
       | .success res =>
-        match helper tail with
+        match mapParser tail with
         | .success lres => .success (res::lres)
         | .failure e => .failure e
       | .failure e => .failure e
     | [] => .success []
 
-instance {α : Type} [Parser α] : ElementsParser α NonEmptyList := ⟨parse α⟩
+instance {α : Type} [Parser α] : SplitMapParser α NonEmptyList := ⟨parse α⟩
 
 end NonEmptyList
 end NonEmptyLists
@@ -254,7 +304,7 @@ deriving instance DecidableEq, BEq, ToString, Repr for NonEmptyString
 namespace NonEmptyString
 
 /--
-Less-then (`lt`) for non-empty strings.
+_Less-than_-relation for non-empty strings.
 -/
 def lt (a b : NonEmptyString) : Prop := a.val < b.val
 
@@ -273,7 +323,8 @@ def decLt (a b : NonEmptyString) : Decidable (a < b) :=
 instance decidableLT (a b : NonEmptyString) : Decidable (a < b) := decLt a b
 
 /--
-Parses a given string and returns a result containing a non-empty string if possible.
+Parses a given string slice and returns a result containing a non-empty string if possible
+and a result that wraps a `ParserError` otherwise.
 -/
 def parse (s : String.Slice) : ParserResult NonEmptyString :=
   let str := s.toString
@@ -295,12 +346,12 @@ section Digits
 namespace Char
 
 /--
-Converts a character representing a digit for base ten
+Converts a character representing a digit for base ten (10)
 to the natural number corresponding to this digit - for other
 characters `none` is returned.
 
-This implementation is seemingly better suited for proofs compared than e.g.
-```lean
+This implementation is seemingly better suited for proofs compared to e.g.
+```
 def toDigit? (c: Char) : Option Nat :=
   if c.isDigit then
     some (c.toNat - '0'.toNat)
@@ -339,11 +390,13 @@ be one of '0', '1' ... '9'
 def toDigit (c : Char) (h: c.isDigit') : Nat :=
   match g: c.toDigit? with
   | .some n => n
-  | .none   => by unfold isDigit' at h; simp [g] at h
+  | .none   => by -- impossible
+    unfold isDigit' at h
+    simp only [g, Bool.false_eq_true] at h
 
 /--
 Converts a digit to a natural number and panics for characters
-that are no digits (for base ten).
+that are not digits (for base ten).
 -/
 def toDigit! (c : Char) : Nat :=
   match c.toDigit? with
@@ -358,16 +411,15 @@ digits (for base ten). It is based on `Char.isDigit'`, so that it easier to
 work with it in proofs.
 
 Hence it is used here instead of shorter implementations like
-```lean
+```
 def NonEmptyString.hasOnlyDigits (nes: NonEmptyString) : Bool := nes.val.isNat
 ```
 -/
-
 def NonEmptyString.hasOnlyDigits (nes: NonEmptyString) : Bool := nes.val.toList.all Char.isDigit'
 
 /--
 Defines a subtype of `NonEmptyString` with the restriction that all
-characters must be digits of base ten.
+characters must be digits (for base ten).
 
 This is used for the definitions
 ```text
@@ -400,7 +452,7 @@ as preferable.
 def toNat (d : Digits) : Nat := d.val.val.foldl (fun acc => fun c => acc * 10 + c.toDigit!) 0
 
 /--
-Less-then relation for digits, which is based on `Nat` (and not `String`)
+_Less-than_-relation for digits, which is based on `Nat` (and not `String`)
 as defined in https://semver.org/ under 4.1:
 ```text
 Identifiers consisting of only digits are compared numerically.
@@ -422,7 +474,7 @@ def lt (a b : Digits) := a.toNat < b.toNat
 instance instLT : LT Digits := ⟨lt⟩
 
 /--
-Decidable _less-then_ for `Digits`.
+Decidable _less-than_ for `Digits`.
 -/
 def decLt (a b : Digits) : Decidable (a < b) :=
   if h: a.toNat < b.toNat then
@@ -433,7 +485,7 @@ def decLt (a b : Digits) : Decidable (a < b) :=
 instance decidableLT (a b : Digits) : Decidable (a < b) := decLt a b
 
 /--
-Converts strings to `Digits` if possible - wrapped into a
+Converts a string slice into `Digits` if possible - wrapped into a
 `ParserResult`.
 -/
 def parse (s: String.Slice) : ParserResult Digits :=
@@ -497,21 +549,21 @@ Converts a numeric identifier to a natural number.
 def toNat (n : NumIdent) : Nat := n.val.toNat
 
 /--
-Less-then for numerical identifiers, which is based on their
+_Less-than_-relation for numerical identifiers, which is based on their
 value as natural number and not as strings.
 -/
 def lt (a b : NumIdent) : Prop := a.toNat < b.toNat
 instance : LT NumIdent := ⟨lt⟩
 
 /--
-Decidable _less-then_ for `NumIdent`.
+Decidable _less-than_ for `NumIdent`.
 -/
 def decLt (a b : NumIdent) : Decidable (a < b) := Digits.decLt a.val b.val
 
 instance decidableLT (a b : NumIdent) : Decidable (a < b) := decLt a b
 
 /--
-Parses strings into `NumIdent` wrapped into a `ParserResult`
+Parses string slices into `NumIdent` wrapped into a `ParserResult`
 if possible.
 -/
 def parse (s : String.Slice) : ParserResult NumIdent  :=
@@ -566,18 +618,28 @@ def Char.isAllowedForIdentifier (chr : Char) : Bool :=
 
 /--
 Checks if a `NonEmptyString` only contains characters that are allowed for identifiers.
+
+The shorter implementation
+```
+def NonEmptyString.isAllowedAsIdentifier (s: NonEmptyString) : Bool :=
+  s.val.all Char.isAllowedForIdentifier
+```
+does not work for statements like
+```
+example : NonEmptyString.isAllowedAsIdentifier ⟨"12ab", by decide⟩ == true := by decide
+```
+with `by decide` as proof but requires seemingly a more sophisticated proof.
 -/
 def NonEmptyString.isAllowedAsIdentifier (s: NonEmptyString) : Bool :=
-  helper s.val.toList
-  where helper : (List Char) → Bool
-  | chr::tail => chr.isAllowedForIdentifier && helper tail
+  checkCharacters s.val.toList
+  where checkCharacters : (List Char) → Bool
+  | chr::tail => chr.isAllowedForIdentifier && checkCharacters tail
   | [] => true
 
-def NonEmptyString.isAllowedAsIdentifier' (s: NonEmptyString) : Bool :=
-  s.val.all Char.isAllowedForIdentifier
+example : NonEmptyString.isAllowedAsIdentifier ⟨"12ab", by decide⟩ == true := by decide
 
 /--
-Defines the fundamental base type for the different kinds of identifiers.
+Defines the base type for the different kinds of identifiers.
 -/
 def Ident : Type := { s: NonEmptyString // s.isAllowedAsIdentifier }
 
@@ -585,19 +647,22 @@ deriving instance DecidableEq, BEq, ToString, Repr for Ident
 
 namespace Ident
 
+/--
+Defines the _less-than_-relation for `Ident`.
+-/
 def lt (a b : Ident) : Prop := a.val < b.val
 
 instance : LT Ident := ⟨lt⟩
 
 /--
-Decidable _less-then_ for `Ident`.
+Decidable _less-than_ for `Ident`.
 -/
 def decLt (a b : Ident) : Decidable (a < b) := NonEmptyString.decLt a.val b.val
 
 instance decidableLT (a b : Ident) : Decidable (a < b) := decLt a b
 
 /--
-Parses the given string and if it is not empty and contains only allowed
+Parses the given string slice and if it is not empty and contains only allowed
 characters, returns an `Ident` wrapped in a `ParserResult`.
 -/
 def parse (s : String.Slice) : ParserResult Ident :=
@@ -608,7 +673,7 @@ def parse (s : String.Slice) : ParserResult Ident :=
     | true => .success ⟨nes, g⟩
     | false =>
       .failure {
-        message := "character is not in [0-9A-Za-z-]",
+        message := "a character in the input is not in [0-9A-Za-z-]",
         input := s
       }
 
@@ -637,21 +702,29 @@ def Char.isAllowedAndNonDigit (chr: Char) : Bool := chr.isAlpha || chr = '-'
 /--
 Returns `true` iff at least one character in the given identifier is not a digit.
 
-```lean
+Again, there are shorter implementation such as
+```
 def Ident.hasNonDigit (i: Ident) : Bool :=
   i.val.val.any Char.isAllowedAndNonDigit
 ```
+but they less convenient in proofs.
 -/
 def Ident.hasNonDigit (i: Ident) : Bool :=
-  helper i.val.val.toList
-  where helper : (List Char) → Bool
-    | chr::tail => chr.isAllowedAndNonDigit || helper tail
+  checkCharacters i.val.val.toList
+  where checkCharacters : (List Char) → Bool
+    | chr::tail => chr.isAllowedAndNonDigit || checkCharacters tail
     | [] => false
 
+/--
+Show that `"12ab"` has non-digits via a very short proof.
+-/
 example : Ident.hasNonDigit ⟨⟨"12ab", by decide⟩, by decide⟩ := by
   simp only [Ident.hasNonDigit]
   rfl
 
+/--
+`AlphanumIdent` is the type for alphanumeric identifiers.
+-/
 def AlphanumIdent : Type := { i : Ident // i.hasNonDigit }
 
 instance : DecidableEq AlphanumIdent := Subtype.instDecidableEq
@@ -660,12 +733,15 @@ deriving instance BEq, ToString, Repr for AlphanumIdent
 
 namespace AlphanumIdent
 
+/--
+Defines the _less-than_-relation for `AlphanumIdent`.
+-/
 def lt (a b : AlphanumIdent) : Prop := a.val < b.val
 
 instance : LT AlphanumIdent := ⟨lt⟩
 
 /--
-Decidable _less-then_ for `AlphanumIdent`.
+Decidable _less-than_ for `AlphanumIdent`.
 -/
 def decLt (a b : AlphanumIdent) : Decidable (a < b) :=
   Ident.decLt a.val b.val
@@ -673,7 +749,7 @@ def decLt (a b : AlphanumIdent) : Decidable (a < b) :=
 instance decidableLT (a b : AlphanumIdent) : Decidable (a < b) := decLt a b
 
 /--
-Parses the given string and if it is a valid alphanumeric identifier,
+Parses the given string slice and if it is a valid alphanumeric identifier,
 returns it wrapped in a `ParserResult`.
 -/
 def parse (s : String.Slice) : ParserResult AlphanumIdent :=
@@ -719,7 +795,7 @@ def toString : BuildIdent → String
 instance : ToString BuildIdent := ⟨toString⟩
 
 /--
-Parses the given string and if it is a valid build identifier,
+Parses the given string slice and if it is a valid build identifier,
 returns it wrapped in a `ParserResult`.
 -/
 def parse (s : String.Slice) : ParserResult BuildIdent :=
@@ -729,7 +805,7 @@ def parse (s : String.Slice) : ParserResult BuildIdent :=
     match Digits.parse s with
     | .success val => .success (digits val)
     | .failure e2 => .failure {
-        message := s!"neither alphanumeric identifier nor digits found because\n1. {e1.message}\n2. {e2.message}"
+        message := s!"neither alphanumeric identifier nor digits found because\n1. {e1.message} or\n2. {e2.message}"
         input := s
       }
 
@@ -758,14 +834,14 @@ instance : Inhabited DotSepBuildIdents := ⟨[(BuildIdent.digits (⟨⟨"0", rfl
 namespace DotSepBuildIdents
 
 /--
-Returns the string representation of dot-separated build identifiers.
+Returns a string representation of dot-separated build identifiers.
 -/
 def toString : DotSepBuildIdents → String := NonEmptyList.toDotSeparatedString
 
 instance : ToString DotSepBuildIdents := ⟨toString⟩
 
 /--
-Parses the given string and if it is a valid dot-separated build identifiers,
+Parses the given string slice and if it is a valid dot-separated build identifiers,
 returns it wrapped in a `ParserResult`.
 -/
 def parse (s : String.Slice) : ParserResult DotSepBuildIdents :=
@@ -780,7 +856,7 @@ end BuildIdentifiers
 section PreReleaseIdentifiers
 
 /--
-Defines pre-release identifiers in accordance with
+Defines the type for pre-release identifiers in accordance with
 ```text
   <pre-release identifier> ::= <alphanumeric identifier>
                             | <numeric identifier>
@@ -796,7 +872,7 @@ deriving instance DecidableEq, BEq, Repr for PreRelIdent
 namespace PreRelIdent
 
 /--
-Less-then for pre-release identifiers. Numeric identifiers
+_Less-than_-relation for pre-release identifiers. Numeric identifiers
 always have lower precedence than alphanumeric (non-numeric)
 identifiers (see https://semver.org/, section 11.4.3).
 -/
@@ -810,7 +886,7 @@ def lt (a b : PreRelIdent) : Prop :=
 instance : LT PreRelIdent := ⟨lt⟩
 
 /--
-Decidable _less-then_ for `PreRelIdent`.
+Decidable _less-than_ for `PreRelIdent`.
 -/
 def decLt (a b : PreRelIdent) : Decidable (a < b) :=
   match ha: a, hb: b with
@@ -836,7 +912,7 @@ def toString : PreRelIdent → String
 instance : ToString PreRelIdent := ⟨toString⟩
 
 /--
-Parses the given string and if it is a valid pre-release identifier, returns
+Parses the given string slice and if it is a valid pre-release identifier, returns
 it wrapped in a `ParserResult`.
 -/
 def parse (s : String.Slice) : ParserResult PreRelIdent  :=
@@ -846,7 +922,7 @@ def parse (s : String.Slice) : ParserResult PreRelIdent  :=
     match NumIdent.parse s with
     | .success val => .success (numIdent val)
     | .failure e2 => .failure {
-        message := s!"neither alphanumeric nor numeric identifier found because \n1. {e1.message}\n2. {e2.message}"
+        message := s!"neither alphanumeric nor numeric identifier found because \n1. {e1.message} or\n2. {e2.message}"
         input := s
       }
 
@@ -882,7 +958,7 @@ def lt (a b : DotSepPreRelIdents) : Prop := NonEmptyList.lt a b
 instance : LT DotSepPreRelIdents := ⟨lt⟩
 
 /--
-Decidable _less-then_ for `DotSepPreRelIdents`.
+Decidable _less-than_-relation for `DotSepPreRelIdents`.
 -/
 def decLt (a b : DotSepPreRelIdents) : Decidable (a < b) := NonEmptyList.decLt a b
 
@@ -893,7 +969,7 @@ def toString : DotSepPreRelIdents → String := NonEmptyList.toDotSeparatedStrin
 instance : ToString DotSepPreRelIdents := ⟨toString⟩
 
 /--
-Parses the given string and if it is a valid dot-separated pre-release
+Parses the given string slice and if it is a valid dot-separated pre-release
 identifiers, returns it wrapped in a `ParserResult`.
 -/
 def parse (s : String.Slice) : ParserResult DotSepPreRelIdents  :=
@@ -947,7 +1023,7 @@ def fromList (l : List Nat) (h : l.length == 3) : VersionCore :=
   | [m,n,p] => {major := m, minor := n, patch := p}
 
 /--
-Less-then for version cores.
+_Less-than_-relation for version cores.
 -/
 def lt (v w : VersionCore) : Prop := v.toList < w.toList
 instance : LT VersionCore := ⟨lt⟩
@@ -1024,7 +1100,7 @@ def ltPreRelease (a b : Version) : Bool :=
   | none, none | none, some _ => false
 
 /--
-Less-then for versions in accordance with
+_Less-than_-relation for versions in accordance with
 [section 11 of the SemVer specification](https://semver.org/#spec-item-11).
 -/
 def lt (v w : Version) : Prop :=
@@ -1056,8 +1132,8 @@ def decLt (v w : Version) : Decidable (v < w) :=
 instance : DecidableLT Version := decLt
 
 /--
-Helper function that parses the version core and optional pre-release
-part of a version string.
+Helper function that parses the version core and optional
+pre-release-part of a version string slice.
 -/
 def parseCorePreRel (s : String.Slice) :
   ParserResult (VersionCore × Option DotSepPreRelIdents) :=
@@ -1079,7 +1155,7 @@ def parseCorePreRel (s : String.Slice) :
         }
 
 /--
-Parses the given string and if it is a valid version, returns it
+Parses the given string slice and if it is a valid version, returns it
 wrapped in a `ParserResult`.
 -/
 def parse (s : String.Slice) : ParserResult Version :=
@@ -1204,12 +1280,12 @@ def cutOffPrefix (s: String.Slice) : String.Slice := s.dropWhile (fun c => !c.is
 Extracts all versions that are contained in a given string.
 -/
 def extractVersions (str: String) : List Version :=
-  helper (str.split (not ∘ Char.isValidForVersion)).toList
-  where helper : List String.Slice → List Version
+  mapParser (str.split (not ∘ Char.isValidForVersion)).toList
+  where mapParser : List String.Slice → List Version
   | [] => []
   | text::tail =>
     match Version.parse (cutOffPrefix text) with
-    | .success v => v::(helper tail)
-    | .failure _ => helper tail
+    | .success v => v::(mapParser tail) -- append
+    | .failure _ => mapParser tail -- ignore
 
 end Extraction

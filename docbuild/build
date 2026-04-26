@@ -1,0 +1,6 @@
+# run as ". build"
+
+rm -rf .lake
+MATHLIB_NO_CACHE_ON_UPDATE=1 lake update lean-semver
+MATHLIB_NO_CACHE_ON_UPDATE=1 lake update doc-gen4
+DOCGEN_SRC="github" lake build SemVer:docs
